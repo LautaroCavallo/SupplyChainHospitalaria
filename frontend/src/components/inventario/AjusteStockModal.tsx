@@ -44,16 +44,20 @@ export default function AjusteStockModal({ isOpen, onClose, producto, onConfirm 
     }
   };
 
-  if (!producto) return null;
-
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Ajustar stock" size="sm">
       <div className="space-y-5">
-        <div>
-          <p className="text-sm text-gray-500">Producto</p>
-          <p className="font-medium text-gray-900">{producto.nombre}</p>
-          <p className="text-xs text-gray-400">Stock actual: {producto.stockActual} {producto.unidad}</p>
-        </div>
+        {producto ? (
+          <div>
+            <p className="text-sm text-gray-500">Producto</p>
+            <p className="font-medium text-gray-900">{producto.nombre}</p>
+            <p className="text-xs text-gray-400">Stock actual: {producto.stockActual} {producto.unidad}</p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            Seleccioná un producto desde la tabla para ajustar su stock.
+          </div>
+        )}
 
         <div>
           <label className="mb-2 block text-sm font-medium text-gray-700">Tipo de ajuste</label>
@@ -117,10 +121,10 @@ export default function AjusteStockModal({ isOpen, onClose, producto, onConfirm 
           </button>
           <button
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || !producto}
             className="rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-light disabled:opacity-50"
           >
-            {saving ? 'Guardando...' : 'Confirmar Ajuste'}
+            {saving ? 'Guardando...' : 'Confirmar ajuste'}
           </button>
         </div>
       </div>

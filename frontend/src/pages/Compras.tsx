@@ -205,7 +205,7 @@ export default function Compras() {
         className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-light"
       >
         <Plus className="h-5 w-5" />
-        + Nueva Solicitud de compra
+        Nueva Solicitud de compra
       </button>
 
       <NuevaSolicitudModal isOpen={nuevaModal} onClose={() => { setNuevaModal(false); fetchData(); }} />

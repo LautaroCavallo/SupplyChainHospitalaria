@@ -7,6 +7,7 @@ import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
 import MedicamentoModal from '../components/gestion/MedicamentoModal';
 import ProveedorDetalleModal from '../components/gestion/ProveedorDetalleModal';
+import ProveedorFormModal from '../components/gestion/ProveedorFormModal';
 
 const categorias = ['Analgésicos', 'Antibióticos', 'Cardiología', 'Endocrinología', 'Anestesia', 'Otro'];
 
@@ -37,6 +38,7 @@ export default function Gestion() {
   const [editMed, setEditMed] = useState<MedicamentoListItem | null>(null);
   const [provModal, setProvModal] = useState(false);
   const [selectedProv, setSelectedProv] = useState<Proveedor | null>(null);
+  const [nuevoProvModal, setNuevoProvModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -116,7 +118,7 @@ export default function Gestion() {
           <button onClick={() => { setEditMed(null); setMedModal(true); }}
             className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-light">
             <Plus className="h-4 w-4" />
-            + Nuevo medicamento
+            Nuevo medicamento
           </button>
         </div>
 
@@ -214,9 +216,12 @@ export default function Gestion() {
       <div>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Detalle de proveedores</h2>
-          <button className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-light">
+          <button
+            onClick={() => setNuevoProvModal(true)}
+            className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-light"
+          >
             <Plus className="h-4 w-4" />
-            + Nuevo proveedor
+            Nuevo proveedor
           </button>
         </div>
 
@@ -303,6 +308,7 @@ export default function Gestion() {
 
       <MedicamentoModal isOpen={medModal} onClose={() => { setMedModal(false); setEditMed(null); fetchData(); }} medicamento={editMed} />
       <ProveedorDetalleModal isOpen={provModal} onClose={() => { setProvModal(false); setSelectedProv(null); }} proveedor={selectedProv} />
+      <ProveedorFormModal isOpen={nuevoProvModal} onClose={() => { setNuevoProvModal(false); fetchData(); }} />
     </div>
   );
 }
