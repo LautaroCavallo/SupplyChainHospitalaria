@@ -2,36 +2,37 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   Box,
-  FileInput,
+  Inbox,
   Users,
-  BarChart3,
+  BarChart2,
+  Wrench,
   LogOut,
 } from 'lucide-react';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/inventario', label: 'Inventario', icon: Box },
-  { to: '/recepciones', label: 'Recepciones', icon: FileInput },
-  { to: '/proveedores', label: 'Proveedores', icon: Users },
-  { to: '/reportes', label: 'Reportes', icon: BarChart3 },
+  { to: '/recepciones', label: 'Recepciones', icon: Inbox },
+  { to: '/pacientes', label: 'Pacientes', icon: Users },
+  { to: '/compras', label: 'Compras', icon: BarChart2 },
+  { to: '/gestion', label: 'Gestion', icon: Wrench },
 ];
 
 export default function Sidebar() {
   return (
-    <aside className="fixed left-0 top-0 z-30 flex h-screen w-60 flex-col bg-[#115e59]">
-      <div className="flex flex-col items-center gap-1 border-b border-teal-600/30 px-6 py-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-400/20">
-          <span className="text-lg font-bold text-teal-300">CS</span>
-        </div>
-        <span className="mt-2 text-base font-semibold tracking-wide text-white">
-          Clinical Sanctuary
+    <aside className="fixed left-0 top-0 z-30 flex h-screen w-52 flex-col bg-brand">
+      {/* Logo */}
+      <div className="flex flex-col items-start gap-0.5 border-b border-white/10 px-5 py-5">
+        <span className="font-serif text-2xl font-bold leading-tight text-white">
+          Health Grid
         </span>
-        <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-teal-300/70">
-          Pharmacy Management
+        <span className="text-[9px] font-medium uppercase tracking-[0.18em] text-green-300/60">
+          Portal Farmacéutico
         </span>
       </div>
 
-      <nav className="mt-4 flex flex-1 flex-col gap-1 px-3">
+      {/* Nav */}
+      <nav className="mt-3 flex flex-1 flex-col gap-0.5 px-2.5">
         {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
@@ -40,20 +41,37 @@ export default function Sidebar() {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'border-l-[3px] border-teal-300 bg-teal-700/50 text-white'
-                  : 'text-teal-100/70 hover:bg-teal-700/30 hover:text-white'
+                  ? 'bg-brand-light text-white'
+                  : 'text-white/60 hover:bg-brand-light/60 hover:text-white'
               }`
             }
           >
-            <Icon className="h-5 w-5 flex-shrink-0" />
-            {label}
+            {({ isActive }) => (
+              <>
+                <Icon className={`h-[18px] w-[18px] flex-shrink-0 ${isActive ? 'text-green-300' : 'text-white/50'}`} />
+                {label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
 
-      <div className="border-t border-teal-600/30 p-3">
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-teal-100/60 transition-colors hover:bg-teal-700/30 hover:text-white">
-          <LogOut className="h-5 w-5" />
+      {/* User card at bottom */}
+      <div className="border-t border-white/10 p-3">
+        <NavLink
+          to="/perfil"
+          className="mb-2 flex w-full items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-brand-light/60"
+        >
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-green-600 text-xs font-bold text-white">
+            AV
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-white">Dr. Alejandro V.</p>
+            <p className="truncate text-[11px] text-white/50">Farmacéutico Jefe</p>
+          </div>
+        </NavLink>
+        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-white/50 transition-colors hover:bg-brand-light/60 hover:text-white">
+          <LogOut className="h-[18px] w-[18px]" />
           Cerrar Sesión
         </button>
       </div>

@@ -1,3 +1,5 @@
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
 export type NivelStock = 'NORMAL' | 'BAJO' | 'CRITICO' | 'SIN_STOCK';
 
 export type CategoriaProducto =
@@ -21,6 +23,8 @@ export type TipoMovimiento =
 export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ENVIADA';
 export type PrioridadSolicitud = 'BAJA' | 'NORMAL' | 'ALTA' | 'URGENTE';
 
+// ─── Inventario ───────────────────────────────────────────────────────────────
+
 export interface ProductoInventario {
   id: string;
   nombre: string;
@@ -35,11 +39,19 @@ export interface ProductoInventario {
   stockCritico: number;
   unidad: string;
   proveedorId?: string;
+  laboratorio?: string;
+  precio?: number;
   activo: boolean;
   createdAt: string;
   updatedAt: string;
   nivelStock?: NivelStock;
   proveedor?: Proveedor;
+}
+
+export interface InventarioSummary {
+  totalProductos: number;
+  alertaBajoStock: number;
+  sinStock: number;
 }
 
 export interface Lote {
@@ -54,44 +66,17 @@ export interface Lote {
   updatedAt: string;
 }
 
-export interface Proveedor {
+export interface MovimientoLote {
   id: string;
-  razonSocial: string;
-  cuit: string;
-  direccion?: string;
-  telefono?: string;
-  email?: string;
-  contacto?: string;
-  activo: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface RecepcionDetalle {
-  id?: string;
-  recepcionId?: string;
+  loteId: string;
   productoId: string;
+  tipo: TipoMovimiento;
   cantidad: number;
-  ean?: string;
-  troquel?: string;
-  lote: string;
-  fechaVencimiento: string;
-  producto?: ProductoInventario;
-}
-
-export interface Recepcion {
-  id: string;
-  proveedorId: string;
-  remito?: string;
-  fechaRecepcion: string;
-  estado: EstadoRecepcion;
-  observaciones?: string;
-  usuarioId?: string;
-  totalItems: number;
-  detalles: RecepcionDetalle[];
+  origen?: string;
+  destino?: string;
+  motivo?: string;
+  responsable?: string;
   createdAt: string;
-  updatedAt: string;
-  proveedor?: Proveedor;
 }
 
 export interface MovimientoStock {
@@ -106,10 +91,70 @@ export interface MovimientoStock {
   createdAt: string;
 }
 
+// ─── Proveedores ──────────────────────────────────────────────────────────────
+
+export interface Proveedor {
+  id: string;
+  razonSocial: string;
+  cuit: string;
+  direccion?: string;
+  telefono?: string;
+  email?: string;
+  contacto?: string;
+  plazoPago?: string;
+  activo: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ProveedorPayload = Omit<Proveedor, 'id' | 'createdAt' | 'updatedAt'>;
+
+// ─── Recepciones ──────────────────────────────────────────────────────────────
+
+export interface RecepcionDetalle {
+  id?: string;
+  recepcionId?: string;
+  productoId: string;
+  cantidad: number;
+  precio?: number;
+  ean?: string;
+  troquel?: string;
+  lote: string;
+  fechaVencimiento: string;
+  laboratorio?: string;
+  producto?: ProductoInventario;
+}
+
+export interface Recepcion {
+  id: string;
+  proveedorId: string;
+  remito?: string;
+  transportista?: string;
+  numeroGuia?: string;
+  cantBultos?: number;
+  fechaRecepcion: string;
+  estado: EstadoRecepcion;
+  observaciones?: string;
+  usuarioId?: string;
+  totalItems: number;
+  detalles: RecepcionDetalle[];
+  createdAt: string;
+  updatedAt: string;
+  proveedor?: Proveedor;
+}
+
+// ─── Solicitudes de Compra ────────────────────────────────────────────────────
+
 export interface SolicitudCompraDetalle {
   id?: string;
   solicitudId?: string;
   productoId: string;
+  nombreProducto?: string;
+  proveedorId?: string;
+  nombreProveedor?: string;
+  motivo?: string;
+  stockActual?: number;
+  stockMinimo?: number;
   cantidadSolicitada: number;
   cantidadAprobada?: number;
 }
@@ -119,11 +164,22 @@ export interface SolicitudCompra {
   estado: EstadoSolicitud;
   prioridad: PrioridadSolicitud;
   motivo?: string;
+  observaciones?: string;
+  fechaSolicitud?: string;
+  proveedorNombre?: string;
   usuarioId?: string;
   detalles: SolicitudCompraDetalle[];
   createdAt: string;
   updatedAt: string;
 }
+
+export type CompraCreatePayload = {
+  fechaSolicitud?: string;
+  observaciones?: string;
+  detalles: Omit<SolicitudCompraDetalle, 'id' | 'solicitudId'>[];
+};
+
+// ─── Alertas ──────────────────────────────────────────────────────────────────
 
 export interface AlertaStockCritico {
   id: string;
@@ -135,6 +191,27 @@ export interface AlertaStockCritico {
   nivel: NivelStock;
   categoria: CategoriaProducto;
   unidad?: string;
+  proveedorNombre?: string;
+}
+
+// ─── Medicamentos (catálogo) ──────────────────────────────────────────────────
+
+export interface MedicamentoListItem {
+  id: string;
+  nombre: string;
+  categoria: string;
+  presentacion?: string;
+  ean?: string;
+  laboratorio?: string;
+  estado: 'ACTIVO' | 'INACTIVO' | 'SUSPENDIDO';
+  precio?: number;
+  observaciones?: string;
+}
+
+export interface MedicamentosSummary {
+  total: number;
+  activos: number;
+  inactivos: number;
 }
 
 export interface MedicamentoVademecum {
@@ -145,6 +222,85 @@ export interface MedicamentoVademecum {
   ean?: string;
   troquel?: string;
 }
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+export interface DashboardSummary {
+  recetasValidadas: number;
+  medicamentosCriticos: number;
+  actividadReciente: number;
+}
+
+export interface ActividadReciente {
+  id: string;
+  evento: string;
+  tipoEvento: 'receta_validada' | 'stock_ajustado' | 'nueva_recepcion' | 'validacion_rechazada' | 'otro';
+  referencia?: string;
+  producto?: string;
+  hora: string;
+  responsable: string;
+  createdAt: string;
+}
+
+// ─── Pacientes / Recetas ──────────────────────────────────────────────────────
+
+export interface RecetaItem {
+  medicamento: string;
+  descripcion?: string;
+  cantAutorizada: number;
+  cantConsumida: number;
+}
+
+export interface RecetaDetalle {
+  id: string;
+  paciente: string;
+  fecha: string;
+  estado: 'Activa' | 'Consumida' | 'Vencida';
+  consumida: boolean;
+  medicoNombre: string;
+  medicoMatricula: string;
+  medicoEspecialidad: string;
+  items: RecetaItem[];
+}
+
+// ─── Notificaciones ───────────────────────────────────────────────────────────
+
+export type TipoNotificacion =
+  | 'stock_critico'
+  | 'receta_validada'
+  | 'nueva_recepcion'
+  | 'lote_por_vencer';
+
+export interface Notificacion {
+  id: string;
+  tipo: TipoNotificacion;
+  titulo: string;
+  descripcion: string;
+  leida: boolean;
+  createdAt: string;
+}
+
+// ─── Perfil ───────────────────────────────────────────────────────────────────
+
+export interface PerfilUsuario {
+  id: string;
+  nombreCompleto: string;
+  email: string;
+  telefono?: string;
+  documento?: string;
+  cargo: string;
+  especialidad?: string;
+  institucion?: string;
+  matricula?: string;
+  estado: 'ACTIVO' | 'INACTIVO';
+  avatarUrl?: string;
+  notifAlertasStock: boolean;
+  notifNuevosProtocolos: boolean;
+}
+
+export type PerfilUpdatePayload = Partial<Omit<PerfilUsuario, 'id'>>;
+
+// ─── Paginación ───────────────────────────────────────────────────────────────
 
 export interface PaginatedResponse<T> {
   data: T[];

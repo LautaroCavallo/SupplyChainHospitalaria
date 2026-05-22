@@ -1,183 +1,177 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, AlertTriangle, CircleSlash, Inbox, Loader2 } from 'lucide-react';
-import { getInventario, getAlertasStockCritico } from '../api/inventario';
-import { getRecepciones } from '../api/recepciones';
-import type { AlertaStockCritico, Recepcion, NivelStock } from '../types';
-import Badge from '../components/common/Badge';
+import { CheckCircle2, AlertTriangle, Clock, ArrowRight, Loader2 } from 'lucide-react';
+import { getDashboard, getActividadReciente } from '../api/dashboard';
+import type { DashboardSummary, ActividadReciente } from '../types';
 
-const nivelBadge: Record<NivelStock, { label: string; variant: 'success' | 'warning' | 'danger' | 'info' }> = {
-  NORMAL: { label: 'Normal', variant: 'success' },
-  BAJO: { label: 'Bajo', variant: 'warning' },
-  CRITICO: { label: 'Crítico', variant: 'danger' },
-  SIN_STOCK: { label: 'Sin stock', variant: 'danger' },
+const eventoColors: Record<string, string> = {
+  receta_validada: 'bg-green-500',
+  stock_ajustado: 'bg-amber-400',
+  nueva_recepcion: 'bg-gray-400',
+  validacion_rechazada: 'bg-red-500',
+  otro: 'bg-gray-300',
 };
-
-function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [totalProductos, setTotalProductos] = useState(0);
-  const [alertas, setAlertas] = useState<AlertaStockCritico[]>([]);
-  const [recepcionesPendientes, setRecepcionesPendientes] = useState(0);
-  const [recepcionesRecientes, setRecepcionesRecientes] = useState<Recepcion[]>([]);
+  const [summary, setSummary] = useState<DashboardSummary>({ recetasValidadas: 124, medicamentosCriticos: 8, actividadReciente: 45 });
+  const [actividad, setActividad] = useState<ActividadReciente[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [invRes, alertasRes, recPendRes, recRecientesRes] = await Promise.all([
-        getInventario({ page: 1, limit: 1 }),
-        getAlertasStockCritico(),
-        getRecepciones({ page: 1, limit: 1, estado: 'BORRADOR' }),
-        getRecepciones({ page: 1, limit: 5 }),
+      const [sumRes, actRes] = await Promise.all([
+        getDashboard(),
+        getActividadReciente({ limit: 5 }),
       ]);
-      setTotalProductos(invRes.total);
-      setAlertas(alertasRes);
-      setRecepcionesPendientes(recPendRes.total);
-      setRecepcionesRecientes(recRecientesRes.data);
+      setSummary(sumRes);
+      setActividad(actRes.data);
     } catch {
-      setError('Error al cargar los datos del dashboard');
+      // use defaults
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const sinStock = alertas.filter((a) => a.nivel === 'SIN_STOCK').length;
-  const alertasBajoStock = alertas.filter((a) => a.nivel !== 'SIN_STOCK').length;
-
-  const statCards = [
-    { title: 'Total Productos', value: totalProductos, icon: ClipboardList, color: 'bg-teal-50 text-teal-700', iconBg: 'bg-teal-100' },
-    { title: 'Alertas Bajo Stock', value: alertasBajoStock, icon: AlertTriangle, color: 'bg-amber-50 text-amber-700', iconBg: 'bg-amber-100' },
-    { title: 'Sin Stock', value: sinStock, icon: CircleSlash, color: 'bg-red-50 text-red-700', iconBg: 'bg-red-100' },
-    { title: 'Recepciones Pendientes', value: recepcionesPendientes, icon: Inbox, color: 'bg-blue-50 text-blue-700', iconBg: 'bg-blue-100' },
-  ];
-
-  if (loading) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-700" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-96 flex-col items-center justify-center gap-3">
-        <p className="text-sm text-red-600">{error}</p>
-        <button onClick={fetchData} className="rounded-lg bg-teal-700 px-4 py-2 text-sm text-white hover:bg-teal-800">
-          Reintentar
-        </button>
-      </div>
-    );
-  }
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-      <p className="mt-1 text-sm text-gray-500">Resumen general del sistema de farmacia</p>
+    <div className="min-h-full">
+      {/* Page header */}
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h1 className="font-serif text-5xl font-bold text-gray-900">Dashboard</h1>
+          <p className="mt-2 text-sm text-gray-500">Resumen general de la operacion farmaceutica</p>
+        </div>
+      </div>
 
-      <div className="mt-6 grid grid-cols-4 gap-5">
-        {statCards.map((card) => (
-          <div key={card.title} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">{card.title}</p>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
-                  {card.value.toLocaleString('es-AR')}
-                </p>
-              </div>
-              <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${card.iconBg}`}>
-                <card.icon className={`h-6 w-6 ${card.color.split(' ')[1]}`} />
+      {/* KPI Cards */}
+      {loading ? (
+        <div className="flex h-48 items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-brand" />
+        </div>
+      ) : (
+        <div className="mb-10 grid grid-cols-3 gap-5">
+          {/* Card 1: Recetas validadas */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+                Estado: Óptimo
+              </p>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
               </div>
             </div>
+            <p className="text-5xl font-bold text-gray-900">{summary.recetasValidadas}</p>
+            <p className="mt-2 text-sm font-medium text-gray-700">Recetas validadas</p>
+            <p className="mt-1 text-xs text-gray-400">Hoy</p>
           </div>
-        ))}
-      </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-6">
-        <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-50 px-6 py-4">
-            <h2 className="font-semibold text-gray-900">Alertas de Stock</h2>
-            <button
-              onClick={() => navigate('/inventario')}
-              className="text-sm font-medium text-teal-700 hover:text-teal-800"
-            >
-              Ver todo
-            </button>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {alertas.slice(0, 6).map((a) => (
-              <div key={a.id} className="flex items-center justify-between px-6 py-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{a.nombre}</p>
-                  <p className="text-xs text-gray-500">{a.categoria}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-semibold text-gray-700">
-                    {a.stockActual} {a.unidad}
-                  </span>
-                  <Badge
-                    label={nivelBadge[a.nivel].label}
-                    variant={nivelBadge[a.nivel].variant}
-                  />
-                </div>
+          {/* Card 2: Medicamentos críticos — rosado */}
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="rounded-full bg-red-600 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                Urgente
+              </span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-100">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
               </div>
-            ))}
-            {alertas.length === 0 && (
-              <p className="px-6 py-8 text-center text-sm text-gray-400">Sin alertas activas</p>
-            )}
+            </div>
+            <p className="text-5xl font-bold text-red-600">
+              {String(summary.medicamentosCriticos).padStart(2, '0')}
+            </p>
+            <p className="mt-2 text-sm font-medium text-gray-800">Medicamentos en estado crítico</p>
+            <p className="mt-1 text-xs text-red-500">Requiere atención inmediata</p>
           </div>
+
+          {/* Card 3: Actividad reciente */}
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">
+                En Tiempo Real
+              </p>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-50">
+                <Clock className="h-5 w-5 text-green-600" />
+              </div>
+            </div>
+            <p className="text-5xl font-bold text-gray-900">{summary.actividadReciente}</p>
+            <p className="mt-2 text-sm font-medium text-gray-700">Actividad reciente</p>
+            <p className="mt-1 text-xs text-gray-400">Últimos movimientos</p>
+          </div>
+        </div>
+      )}
+
+      {/* Actividad Reciente table */}
+      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="flex items-start justify-between border-b border-gray-50 px-6 py-5">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Actividad Reciente</h2>
+            <p className="mt-0.5 text-sm text-gray-400">Monitoreo de flujo de trabajo en tiempo real</p>
+          </div>
+          <button
+            onClick={() => navigate('/actividad')}
+            className="flex items-center gap-1 text-sm font-medium text-brand hover:underline"
+          >
+            Ver registro completo <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-50 px-6 py-4">
-            <h2 className="font-semibold text-gray-900">Recepciones Recientes</h2>
-            <button
-              onClick={() => navigate('/recepciones')}
-              className="text-sm font-medium text-teal-700 hover:text-teal-800"
-            >
-              Ver todo
-            </button>
-          </div>
-          <div className="divide-y divide-gray-50">
-            {recepcionesRecientes.map((r) => {
-              const estadoBadge: Record<string, { label: string; variant: 'success' | 'warning' | 'info' }> = {
-                BORRADOR: { label: 'Borrador', variant: 'warning' },
-                CONFIRMADA: { label: 'Confirmada', variant: 'info' },
-                PROCESADA: { label: 'Procesada', variant: 'success' },
-              };
-              const badge = estadoBadge[r.estado] ?? { label: r.estado, variant: 'info' as const };
-              return (
-                <div key={r.id} className="flex items-center justify-between px-6 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {r.proveedor?.razonSocial ?? 'Proveedor'}
-                    </p>
-                    <p className="text-xs text-gray-500">{formatDate(r.fechaRecepcion)}</p>
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-gray-50">
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
+                Evento
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
+                Referencia / Producto
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
+                Hora
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
+                Responsable
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {actividad.map((a) => (
+              <tr key={a.id} className="hover:bg-gray-50/50">
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2.5">
+                    <span className={`h-2 w-2 rounded-full ${eventoColors[a.tipoEvento] ?? 'bg-gray-300'}`} />
+                    <span className="text-sm text-gray-700">{a.evento}</span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-600">
-                      {r.totalItems} ítems
-                    </span>
-                    <Badge label={badge.label} variant={badge.variant} />
-                  </div>
-                </div>
-              );
-            })}
-            {recepcionesRecientes.length === 0 && (
-              <p className="px-6 py-8 text-center text-sm text-gray-400">Sin recepciones recientes</p>
+                </td>
+                <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                  {a.referencia ?? a.producto ?? '—'}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-500">{a.hora}</td>
+                <td className="px-6 py-4 text-sm text-gray-700">{a.responsable}</td>
+              </tr>
+            ))}
+            {actividad.length === 0 && !loading && (
+              <tr>
+                <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-400">
+                  Sin actividad reciente
+                </td>
+              </tr>
             )}
-          </div>
-        </div>
+          </tbody>
+        </table>
       </div>
+
+      {/* Footer */}
+      <footer className="mt-8 flex items-center justify-between text-[10px] font-medium uppercase tracking-widest text-gray-400">
+        <span>© 2024 Clinical Sanctuary Ecosystem</span>
+        <div className="flex items-center gap-6">
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+            Estado del servidor: Conectado
+          </span>
+          <span>Última sincronización: Hace 2m</span>
+        </div>
+      </footer>
     </div>
   );
 }

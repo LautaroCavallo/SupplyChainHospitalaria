@@ -34,6 +34,14 @@ export async function crearRecepcion(
   return res.data.data;
 }
 
+export async function actualizarRecepcion(
+  id: string,
+  data: CrearRecepcionPayload
+): Promise<Recepcion> {
+  const res = await api.put(`/recepciones/${id}`, data);
+  return res.data.data;
+}
+
 export async function confirmarRecepcion(id: string): Promise<Recepcion> {
   const res = await api.put(`/recepciones/${id}/confirmar`);
   return res.data.data;

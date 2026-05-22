@@ -1,22 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  ChevronRight,
-  Pill,
-  Package,
-  Info,
-  Edit,
-  History,
-  Plus,
-  AlertTriangle,
-  Loader2,
-} from 'lucide-react';
+import { ChevronRight, History, AlertTriangle, Loader2 } from 'lucide-react';
 import { getProducto, getLotes } from '../api/inventario';
-import type { ProductoInventario, Lote, NivelStock } from '../types';
+import type { ProductoInventario, Lote, NivelStock, EstadoLote } from '../types';
 import Badge from '../components/common/Badge';
+import Pagination from '../components/common/Pagination';
 
 function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const dt = new Date(d);
+  const month = (dt.getMonth() + 1).toString().padStart(2, '0');
+  const year = dt.getFullYear();
+  return `${month}/${year}`;
 }
 
 function getNivelStock(p: ProductoInventario): NivelStock {
@@ -28,23 +22,34 @@ function getNivelStock(p: ProductoInventario): NivelStock {
 }
 
 const nivelBadge: Record<NivelStock, { label: string; variant: 'success' | 'warning' | 'danger' }> = {
-  NORMAL: { label: 'Normal', variant: 'success' },
-  BAJO: { label: 'Bajo', variant: 'warning' },
-  CRITICO: { label: 'Crítico', variant: 'danger' },
-  SIN_STOCK: { label: 'Sin stock', variant: 'danger' },
+  NORMAL:    { label: 'NORMAL',          variant: 'success' },
+  BAJO:      { label: 'BAJO',            variant: 'warning' },
+  CRITICO:   { label: 'CRÍTICO',         variant: 'danger' },
+  SIN_STOCK: { label: 'SIN STOCK',       variant: 'danger' },
 };
 
-const estadoLoteBadge: Record<string, { label: string; variant: 'success' | 'warning' | 'danger' }> = {
-  VIGENTE: { label: 'Vigente', variant: 'success' },
-  PROXIMO_A_VENCER: { label: 'Próximo a vencer', variant: 'warning' },
-  VENCIDO: { label: 'Vencido', variant: 'danger' },
+const estadoLoteBadge: Record<EstadoLote, { label: string; variant: 'success' | 'warning' | 'danger' }> = {
+  VIGENTE:          { label: 'VIGENTE',           variant: 'success' },
+  PROXIMO_A_VENCER: { label: 'PRÓXIMO A VENCER',  variant: 'warning' },
+  VENCIDO:          { label: 'VENCIDO',            variant: 'danger' },
 };
+
+const estadoFilterOptions: { label: string; value: string }[] = [
+  { label: 'Todos', value: '' },
+  { label: 'Vigente', value: 'VIGENTE' },
+  { label: 'Próximo a vencer', value: 'PROXIMO_A_VENCER' },
+  { label: 'Vencido', value: 'VENCIDO' },
+];
+
+const LIMIT = 10;
 
 export default function InventarioDetalle() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [producto, setProducto] = useState<ProductoInventario | null>(null);
   const [lotes, setLotes] = useState<Lote[]>([]);
+  const [estadoFilter, setEstadoFilter] = useState('');
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,14 +68,12 @@ export default function InventarioDetalle() {
     }
   }, [id]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-teal-700" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand" />
       </div>
     );
   }
@@ -79,7 +82,7 @@ export default function InventarioDetalle() {
     return (
       <div className="flex h-96 flex-col items-center justify-center gap-3">
         <p className="text-sm text-red-600">{error ?? 'Producto no encontrado'}</p>
-        <button onClick={() => navigate('/inventario')} className="rounded-lg bg-teal-700 px-4 py-2 text-sm text-white hover:bg-teal-800">
+        <button onClick={() => navigate('/inventario')} className="rounded-lg bg-brand px-4 py-2 text-sm text-white hover:bg-brand-light">
           Volver al inventario
         </button>
       </div>
@@ -89,146 +92,135 @@ export default function InventarioDetalle() {
   const nivel = getNivelStock(producto);
   const hasProximoAVencer = lotes.some((l) => l.estado === 'PROXIMO_A_VENCER');
 
+  const filteredLotes = estadoFilter
+    ? lotes.filter((l) => l.estado === estadoFilter)
+    : lotes;
+  const totalPages = Math.max(1, Math.ceil(filteredLotes.length / LIMIT));
+  const pagedLotes = filteredLotes.slice((page - 1) * LIMIT, page * LIMIT);
+
   return (
     <div>
-      <div className="mb-4 flex items-center gap-2 text-sm text-gray-500">
-        <button onClick={() => navigate('/inventario')} className="hover:text-teal-700">
+      {/* Breadcrumb */}
+      <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-gray-400">
+        <button onClick={() => navigate('/inventario')} className="hover:text-brand">
           Inventario
         </button>
-        <ChevronRight className="h-4 w-4" />
-        <span className="text-gray-900">{producto.nombre}</span>
+        <ChevronRight className="h-3.5 w-3.5" />
+        <span className="text-brand">{producto.nombre.toUpperCase()}</span>
       </div>
 
+      {/* Alert */}
       {hasProximoAVencer && (
-        <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-          <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-600" />
+        <div className="mb-5 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-3">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-600" />
           <p className="text-sm text-amber-800">
             Atención: Hay lotes próximos a vencer. Se recomienda priorizar su salida.
           </p>
         </div>
       )}
 
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{producto.nombre}</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gestión detallada de lotes y existencias farmacéuticas
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(`/inventario/${id}`)}
-            className="flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            <History className="h-4 w-4" />
-            Ver todos los movimientos
-          </button>
-          <button className="flex items-center gap-2 rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800">
-            <Plus className="h-4 w-4" />
-            Agregar lote
-          </button>
-        </div>
+      {/* Title */}
+      <div className="mb-6">
+        <h1 className="font-serif text-4xl font-bold text-gray-900">{producto.nombre}</h1>
+        <p className="mt-1 text-sm text-gray-500">Gestión detallada de lotes y existencias farmacéuticas</p>
       </div>
 
+      {/* Info cards */}
       <div className="mb-8 grid grid-cols-3 gap-5">
-        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-gray-500">
-            <Pill className="h-4 w-4" />
-            Medicamento
-          </div>
-          <p className="text-lg font-semibold text-gray-900">{producto.nombre}</p>
-          <p className="text-sm text-gray-500">{producto.categoria}</p>
-          <div className="mt-3">
+        {/* Card 1: Medicamento */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">Medicamento</p>
+          <div className="mb-2">
             <Badge label={nivelBadge[nivel].label} variant={nivelBadge[nivel].variant} />
           </div>
+          <p className="mt-2 text-lg font-semibold text-gray-900">{producto.nombre}</p>
+          {producto.principioActivo && (
+            <p className="text-sm text-gray-500">
+              {producto.principioActivo} {producto.presentacion ? `• ${producto.presentacion}` : ''}
+            </p>
+          )}
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-gray-500">
-            <Package className="h-4 w-4" />
-            Stock Total
-          </div>
-          <p className="text-4xl font-bold text-gray-900">
+        {/* Card 2: Stock Total */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">Stock Total</p>
+          <p className="text-5xl font-bold text-gray-900">
             {producto.stockActual.toLocaleString('es-AR')}
           </p>
-          <p className="text-sm text-gray-500">unidades disponibles</p>
+          <p className="mt-2 text-sm text-gray-500">unidades disponibles</p>
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-gray-500">
-            <Info className="h-4 w-4" />
-            Detalles
-          </div>
+        {/* Card 3: Detalles */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400">Detalles</p>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Categoría</span>
-              <span className="font-medium text-gray-900">{producto.categoria}</span>
+              <span className="text-gray-500">Categoría:</span>
+              <span className="font-semibold text-gray-900">{producto.categoria}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Unidad</span>
-              <span className="font-medium text-gray-900">{producto.unidad}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Stock mínimo</span>
-              <span className="font-medium text-gray-900">{producto.stockMinimo}</span>
-            </div>
-            {producto.ean && (
+            {producto.proveedor && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">EAN</span>
-                <span className="font-medium text-gray-900">{producto.ean}</span>
+                <span className="text-gray-500">Proveedor:</span>
+                <span className="font-semibold text-gray-900">{producto.proveedor.razonSocial}</span>
+              </div>
+            )}
+            {producto.precio !== undefined && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Precio:</span>
+                <span className="font-semibold text-gray-900">${producto.precio} c/und.</span>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
-        <div className="border-b border-gray-100 px-6 py-4">
-          <h2 className="font-semibold text-gray-900">Lotes</h2>
+      {/* Lotes */}
+      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <h2 className="font-semibold text-gray-900">Lotes Registrados</h2>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            Estado:
+            <select
+              value={estadoFilter}
+              onChange={(e) => { setEstadoFilter(e.target.value); setPage(1); }}
+              className="rounded-lg border border-gray-200 px-2 py-1 text-sm focus:border-brand focus:outline-none"
+            >
+              {estadoFilterOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <table className="w-full">
           <thead>
-            <tr className="border-b border-gray-100">
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Número de lote
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Fecha de vencimiento
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                Stock disponible
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Estado
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                Acciones
-              </th>
+            <tr className="border-b border-gray-100 bg-gray-50/50">
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Número de Lote</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Fecha de Vencimiento</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Stock Disponible</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Estado</th>
+              <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {lotes.map((lote) => {
+            {pagedLotes.map((lote) => {
               const badge = estadoLoteBadge[lote.estado] ?? { label: lote.estado, variant: 'info' as const };
               return (
                 <tr key={lote.id} className="transition-colors hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <span className="text-sm font-medium text-teal-700">{lote.numeroLote}</span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {formatDate(lote.fechaVencimiento)}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                    {lote.stockDisponible.toLocaleString('es-AR')}
+                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">{lote.numeroLote}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{formatDate(lote.fechaVencimiento)}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                    {lote.stockDisponible.toLocaleString('es-AR')} ud
                   </td>
                   <td className="px-6 py-4">
                     <Badge label={badge.label} variant={badge.variant} />
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-1">
-                      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => navigate(`/inventario/${id}/lotes/${lote.id}/historial`)}
+                        title="Ver historial"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
+                      >
                         <History className="h-4 w-4" />
                       </button>
                     </div>
@@ -236,15 +228,21 @@ export default function InventarioDetalle() {
                 </tr>
               );
             })}
-            {lotes.length === 0 && (
+            {pagedLotes.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-400">
-                  No hay lotes registrados para este producto
+                  No hay lotes registrados
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+        <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
+          <p className="text-sm text-gray-500">
+            Mostrando {pagedLotes.length} de {filteredLotes.length}
+          </p>
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+        </div>
       </div>
     </div>
   );

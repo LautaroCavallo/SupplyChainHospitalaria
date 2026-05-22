@@ -1,19 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search,
-  Eye,
-  Copy,
-  Edit,
-  SlidersHorizontal,
-  Download,
-  Plus,
-  Loader2,
-  TrendingUp,
-  AlertTriangle,
-  CircleSlash,
+  Search, Edit, Eye, Plus, Loader2, TrendingUp, AlertTriangle, Ban,
 } from 'lucide-react';
-import { getInventario, getAlertasStockCritico, ajustarStock } from '../api/inventario';
+import { getInventario, getInventarioSummary, ajustarStock } from '../api/inventario';
 import type { ProductoInventario, NivelStock, PaginatedResponse } from '../types';
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
@@ -28,22 +18,24 @@ function getNivelStock(p: ProductoInventario): NivelStock {
 }
 
 const nivelConfig: Record<NivelStock, { label: string; variant: 'success' | 'warning' | 'danger' }> = {
-  NORMAL: { label: 'En stock', variant: 'success' },
-  BAJO: { label: 'Stock bajo', variant: 'warning' },
-  CRITICO: { label: 'Crítico', variant: 'danger' },
-  SIN_STOCK: { label: 'Sin stock', variant: 'danger' },
+  NORMAL:    { label: 'En stock',   variant: 'success' },
+  BAJO:      { label: 'Bajo stock', variant: 'warning' },
+  CRITICO:   { label: 'Crítico',    variant: 'danger' },
+  SIN_STOCK: { label: 'Sin stock',  variant: 'danger' },
 };
+
+const categorias = ['Antibióticos', 'Analgésicos', 'Endocrinología', 'Anestesia', 'Cardiología', 'Otro'];
 
 export default function Inventario() {
   const navigate = useNavigate();
   const [data, setData] = useState<PaginatedResponse<ProductoInventario> | null>(null);
   const [page, setPage] = useState(1);
   const [busqueda, setBusqueda] = useState('');
+  const [categoria, setCategoria] = useState('');
   const [estado, setEstado] = useState('');
-  const [eanSearch, setEanSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [alertCount, setAlertCount] = useState({ bajo: 0, sinStock: 0 });
+  const [summary, setSummary] = useState({ totalProductos: 0, alertaBajoStock: 0, sinStock: 0 });
   const [ajusteModal, setAjusteModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductoInventario | null>(null);
 
@@ -51,30 +43,21 @@ export default function Inventario() {
     try {
       setLoading(true);
       setError(null);
-      const search = eanSearch || busqueda;
-      const [res, alertas] = await Promise.all([
-        getInventario({ page, limit: 10, busqueda: search, estado }),
-        getAlertasStockCritico(),
+      const [res, sum] = await Promise.all([
+        getInventario({ page, limit: 10, busqueda: busqueda || undefined, categoria: categoria || undefined, estado: estado || undefined }),
+        getInventarioSummary(),
       ]);
       setData(res);
-      setAlertCount({
-        bajo: alertas.filter((a) => a.nivel === 'BAJO' || a.nivel === 'CRITICO').length,
-        sinStock: alertas.filter((a) => a.nivel === 'SIN_STOCK').length,
-      });
+      setSummary(sum);
     } catch {
       setError('Error al cargar el inventario');
     } finally {
       setLoading(false);
     }
-  }, [page, busqueda, estado, eanSearch]);
+  }, [page, busqueda, categoria, estado]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [busqueda, estado, eanSearch]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setPage(1); }, [busqueda, categoria, estado]);
 
   const handleAjuste = async (ajusteData: { tipo: string; cantidad: number; motivo: string }) => {
     if (!selectedProduct) return;
@@ -82,123 +65,119 @@ export default function Inventario() {
     await fetchData();
   };
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
-
-  const statCards = [
-    {
-      title: 'PRODUCTOS TOTALES',
-      value: data?.total ?? 0,
-      badge: <Badge label="+12%" variant="success" />,
-      icon: TrendingUp,
-      iconColor: 'text-teal-600',
-      iconBg: 'bg-teal-50',
-    },
-    {
-      title: 'ALERTA BAJO STOCK',
-      value: alertCount.bajo,
-      extra: (
-        <button onClick={() => setEstado('BAJO')} className="text-xs font-medium text-amber-600 hover:underline">
-          Revisar
-        </button>
-      ),
-      icon: AlertTriangle,
-      iconColor: 'text-amber-600',
-      iconBg: 'bg-amber-50',
-    },
-    {
-      title: 'SIN STOCK',
-      value: alertCount.sinStock,
-      badge: alertCount.sinStock > 0 ? <Badge label="Crítico" variant="danger" /> : null,
-      icon: CircleSlash,
-      iconColor: 'text-red-600',
-      iconBg: 'bg-red-50',
-    },
-  ];
-
   return (
     <div>
+      {/* Page header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Inventario</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="font-serif text-5xl font-bold text-gray-900">Inventario</h1>
+        <p className="mt-2 text-sm text-gray-500">
           Supervisión del stock de medicamentos y suministros médicos
         </p>
       </div>
 
+      {/* KPI Cards */}
       <div className="mb-6 grid grid-cols-3 gap-5">
-        {statCards.map((card) => (
-          <div key={card.title} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                  {card.title}
-                </p>
-                <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-gray-900">
-                    {card.value.toLocaleString('es-AR')}
-                  </span>
-                  {card.badge}
-                </div>
-                {card.extra && <div className="mt-1">{card.extra}</div>}
-              </div>
-              <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${card.iconBg}`}>
-                <card.icon className={`h-6 w-6 ${card.iconColor}`} />
-              </div>
+        {/* Total */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50">
+              <TrendingUp className="h-5 w-5 text-green-600" />
             </div>
+            <span className="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+              +12% últ. mes
+            </span>
           </div>
-        ))}
-      </div>
-
-      <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
-        <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre de producto..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className="h-10 w-full rounded-lg border border-gray-200 pl-10 pr-4 text-sm placeholder:text-gray-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
-          </div>
-          <select
-            value={estado}
-            onChange={(e) => setEstado(e.target.value)}
-            className="h-10 rounded-lg border border-gray-200 px-3 pr-8 text-sm text-gray-700 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-          >
-            <option value="">Todos los estados</option>
-            <option value="NORMAL">En stock</option>
-            <option value="BAJO">Stock bajo</option>
-            <option value="CRITICO">Crítico</option>
-            <option value="SIN_STOCK">Sin stock</option>
-          </select>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="EAN / Troquel"
-              value={eanSearch}
-              onChange={(e) => setEanSearch(e.target.value)}
-              className="h-10 w-40 rounded-lg border border-gray-200 pl-10 pr-4 text-sm placeholder:text-gray-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
-            />
-          </div>
-          <button className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">
-            <SlidersHorizontal className="h-4 w-4" />
-          </button>
-          <button className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">
-            <Download className="h-4 w-4" />
-          </button>
+          <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-gray-400">
+            Productos Totales
+          </p>
+          <p className="mt-1 text-3xl font-bold text-gray-900">
+            {(summary.totalProductos || data?.total || 0).toLocaleString('es-AR')}
+          </p>
         </div>
 
+        {/* Bajo stock */}
+        <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-5 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+            </div>
+            <button
+              onClick={() => setEstado('BAJO')}
+              className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 hover:bg-amber-200"
+            >
+              Revisar
+            </button>
+          </div>
+          <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-gray-400">
+            Alerta Bajo Stock
+          </p>
+          <p className="mt-1 text-3xl font-bold text-gray-900">
+            {summary.alertaBajoStock.toLocaleString('es-AR')}
+          </p>
+        </div>
+
+        {/* Sin stock */}
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-5 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100">
+              <Ban className="h-5 w-5 text-red-600" />
+            </div>
+            <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+              Crítico
+            </span>
+          </div>
+          <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-gray-400">
+            Sin Stock
+          </p>
+          <p className="mt-1 text-3xl font-bold text-red-600">
+            {summary.sinStock.toLocaleString('es-AR')}
+          </p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar por nombre o código EAN..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="h-10 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-4 text-sm placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+          />
+        </div>
+        <select
+          value={categoria}
+          onChange={(e) => setCategoria(e.target.value)}
+          className="h-10 rounded-xl border border-gray-200 bg-white px-3 pr-8 text-sm text-gray-600 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+        >
+          <option value="">Categoría</option>
+          {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select
+          value={estado}
+          onChange={(e) => setEstado(e.target.value)}
+          className="h-10 rounded-xl border border-gray-200 bg-white px-3 pr-8 text-sm text-gray-600 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+        >
+          <option value="">Estado</option>
+          <option value="NORMAL">En stock</option>
+          <option value="BAJO">Bajo stock</option>
+          <option value="CRITICO">Crítico</option>
+          <option value="SIN_STOCK">Sin stock</option>
+        </select>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
         {loading ? (
           <div className="flex h-64 items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-teal-700" />
+            <Loader2 className="h-6 w-6 animate-spin text-brand" />
           </div>
         ) : error ? (
           <div className="flex h-64 flex-col items-center justify-center gap-3">
             <p className="text-sm text-red-600">{error}</p>
-            <button onClick={fetchData} className="rounded-lg bg-teal-700 px-4 py-2 text-sm text-white hover:bg-teal-800">
+            <button onClick={fetchData} className="rounded-lg bg-brand px-4 py-2 text-sm text-white hover:bg-brand-light">
               Reintentar
             </button>
           </div>
@@ -206,23 +185,23 @@ export default function Inventario() {
           <>
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Producto
+                <tr className="border-b border-gray-100 bg-gray-50/50">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
+                    Medicamento
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    EAN
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
                     Troquel
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Cant.
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
+                    EAN
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
+                    Stock Actual
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
+                    Estado
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">
                     Acciones
                   </th>
                 </tr>
@@ -231,39 +210,34 @@ export default function Inventario() {
                 {data?.data.map((p) => {
                   const nivel = getNivelStock(p);
                   const config = nivelConfig[nivel];
+                  const isSinStock = nivel === 'SIN_STOCK';
                   return (
                     <tr
                       key={p.id}
-                      className="cursor-pointer transition-colors hover:bg-gray-50"
+                      className={`cursor-pointer transition-colors hover:bg-gray-50 ${isSinStock ? 'border-l-4 border-l-red-500' : ''}`}
                       onClick={() => navigate(`/inventario/${p.id}`)}
                     >
                       <td className="px-6 py-4">
-                        <p className="text-sm font-medium text-gray-900">{p.nombre}</p>
-                        <p className="text-xs text-gray-500">{p.categoria}</p>
+                        <p className="text-sm font-semibold text-gray-900">{p.nombre}</p>
+                        <p className="text-xs text-gray-400">
+                          {p.principioActivo ?? p.categoria} {p.presentacion ? `• ${p.presentacion}` : ''}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{p.troquel ?? '—'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{p.ean ?? '—'}</td>
+                      <td className="px-6 py-4">
+                        <span className={`text-sm font-bold ${isSinStock ? 'text-red-600' : 'text-gray-900'}`}>
+                          {isSinStock ? '0' : p.stockActual.toLocaleString('es-AR')}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <Badge label={config.label} variant={config.variant} />
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{p.ean ?? '—'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{p.troquel ?? '—'}</td>
-                      <td className="px-6 py-4 text-right text-sm font-semibold text-gray-900">
-                        {p.stockActual.toLocaleString('es-AR')}
-                      </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => handleCopy(p.ean ?? p.nombre)}
-                            title="Copiar"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedProduct(p);
-                              setAjusteModal(true);
-                            }}
-                            title="Ajustar stock"
+                            onClick={() => { setSelectedProduct(p); setAjusteModal(true); }}
+                            title="Editar"
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
                           >
                             <Edit className="h-4 w-4" />
@@ -280,6 +254,13 @@ export default function Inventario() {
                     </tr>
                   );
                 })}
+                {data?.data.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
+                      No se encontraron productos
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
 
@@ -298,22 +279,17 @@ export default function Inventario() {
       </div>
 
       <button
-        onClick={() => {
-          setSelectedProduct(null);
-          setAjusteModal(true);
-        }}
-        className="fixed bottom-8 right-8 flex h-14 w-14 items-center justify-center rounded-full bg-teal-700 text-white shadow-lg transition-transform hover:scale-105 hover:bg-teal-800"
+        onClick={() => { setSelectedProduct(null); setAjusteModal(true); }}
+        className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-medium text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-light"
         title="Ajuste de stock"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-5 w-5" />
+        Nuevo ajuste
       </button>
 
       <AjusteStockModal
         isOpen={ajusteModal}
-        onClose={() => {
-          setAjusteModal(false);
-          setSelectedProduct(null);
-        }}
+        onClose={() => { setAjusteModal(false); setSelectedProduct(null); }}
         producto={selectedProduct}
         onConfirm={handleAjuste}
       />
