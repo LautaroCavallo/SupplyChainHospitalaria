@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Proveedor {
+  id              String   @id @default(uuid())
+  razonSocial     String
+  cuit            String   @unique
+  direccion       String?
+  telefono        String?
+  email           String?
+  contacto        String?
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  recepciones     Recepcion[]
+  productos       ProductoInventario[]
+
+  @@map("proveedores")
+}
+
+model ProductoInventario {
+  id              String   @id @default(uuid())
+  nombre          String
+  descripcion     String?
+  principioActivo String?
+  presentacion    String?
+  categoria       String
+  ean             String?  @unique
+  troquel         String?  @unique
+  stockActual     Int      @default(0)
+  stockMinimo     Int      @default(10)
+  stockCritico    Int      @default(5)
+  unidad          String   @default("unidad")
+  proveedorId     String?
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  proveedor       Proveedor?       @relation(fields: [proveedorId], references: [id])
+  lotes           Lote[]
+  movimientos     MovimientoStock[]
+  recepcionItems  RecepcionDetalle[]
+  solicitudItems  SolicitudCompraDetalle[]
+
+  @@map("productos_inventario")
+}
+
+model Lote {
+  id                  String   @id @default(uuid())
+  numeroLote          String
+  productoId          String
+  fechaVencimiento    DateTime
+  stockDisponible     Int      @default(0)
+  stockInicial        Int      @default(0)
+  estado              String   @default("VIGENTE")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  producto            ProductoInventario @relation(fields: [productoId], references: [id])
+  movimientos         MovimientoStock[]
+
+  @@unique([productoId, numeroLote])
+  @@map("lotes")
+}
+
+model MovimientoStock {
+  id              String   @id @default(uuid())
+  productoId      String
+  loteId          String?
+  tipo            String
+  cantidad        Int
+  motivo          String
+  referencia      String?
+  usuarioId       String?
+  createdAt       DateTime @default(now())
+
+  producto        ProductoInventario @relation(fields: [productoId], references: [id])
+  lote            Lote?              @relation(fields: [loteId], references: [id])
+
+  @@map("movimientos_stock")
+}
+
+model Recepcion {
+  id              String   @id @default(uuid())
+  proveedorId     String
+  remito          String?
+  fechaRecepcion  DateTime
+  estado          String   @default("BORRADOR")
+  observaciones   String?
+  usuarioId       String?
+  totalItems      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  proveedor       Proveedor          @relation(fields: [proveedorId], references: [id])
+  detalles        RecepcionDetalle[]
+
+  @@map("recepciones")
+}
+
+model RecepcionDetalle {
+  id                  String   @id @default(uuid())
+  recepcionId         String
+  productoId          String
+  cantidad            Int
+  ean                 String?
+  troquel             String?
+  lote                String
+  fechaVencimiento    DateTime
+  createdAt           DateTime @default(now())
+
+  recepcion           Recepcion          @relation(fields: [recepcionId], references: [id], onDelete: Cascade)
+  producto            ProductoInventario @relation(fields: [productoId], references: [id])
+
+  @@map("recepcion_detalles")
+}
+
+model SolicitudCompra {
+  id              String   @id @default(uuid())
+  estado          String   @default("PENDIENTE")
+  prioridad       String   @default("NORMAL")
+  motivo          String?
+  usuarioId       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  detalles        SolicitudCompraDetalle[]
+
+  @@map("solicitudes_compra")
+}
+
+model SolicitudCompraDetalle {
+  id                  String   @id @default(uuid())
+  solicitudId         String
+  productoId          String
+  cantidadSolicitada  Int
+  cantidadAprobada    Int?
+  createdAt           DateTime @default(now())
+
+  solicitud           SolicitudCompra    @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  producto            ProductoInventario @relation(fields: [productoId], references: [id])
+
+  @@map("solicitud_compra_detalles")
+}
