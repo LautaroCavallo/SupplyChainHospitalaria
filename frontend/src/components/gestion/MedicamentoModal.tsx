@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Loader2, Trash2 } from 'lucide-react';
+import { X, Info, BarChart2, DollarSign, MoreHorizontal, Loader2, Trash2 } from 'lucide-react';
 import { crearMedicamento, actualizarMedicamento } from '../../api/medicamentos';
 import type { MedicamentoListItem } from '../../types';
 
@@ -10,16 +10,19 @@ interface Props {
 }
 
 const categorias = ['Analgésicos', 'Antibióticos', 'Cardiología', 'Endocrinología', 'Anestesia', 'Jarabe', 'Otro'];
-const laboratorios = ['PharmaCore', 'NaturaPharma', 'BioMed', 'Laboratorio Central S.A.', 'Otro'];
+const laboratorios = ['PharmaCore S.A.', 'NaturaPharma', 'BioMed', 'Laboratorio Central S.A.', 'Roemmers', 'Bayer', 'Otro'];
+
+type Estado = 'ACTIVO' | 'INACTIVO' | 'SUSPENDIDO';
 
 export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props) {
   const isEdit = !!medicamento;
+
   const [nombre, setNombre] = useState('');
   const [categoria, setCategoria] = useState('');
   const [presentacion, setPresentacion] = useState('');
   const [ean, setEan] = useState('');
   const [laboratorio, setLaboratorio] = useState('');
-  const [estado, setEstado] = useState<'ACTIVO' | 'INACTIVO' | 'SUSPENDIDO'>('ACTIVO');
+  const [estado, setEstado] = useState<Estado>('ACTIVO');
   const [precio, setPrecio] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [saving, setSaving] = useState(false);
@@ -36,127 +39,213 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
       setPrecio(medicamento.precio?.toString() ?? '');
       setObservaciones(medicamento.observaciones ?? '');
     } else {
-      setNombre(''); setCategoria(''); setPresentacion(''); setEan('');
-      setLaboratorio(''); setEstado('ACTIVO'); setPrecio(''); setObservaciones('');
+      setNombre(''); setCategoria(''); setPresentacion('');
+      setEan(''); setLaboratorio(''); setEstado('ACTIVO');
+      setPrecio(''); setObservaciones('');
     }
+    setError(null);
   }, [medicamento, isOpen]);
 
   const handleSubmit = async () => {
     if (!nombre || !categoria) { setError('Nombre y categoría son requeridos'); return; }
     try {
       setSaving(true); setError(null);
-      const payload = { nombre, categoria, presentacion: presentacion || undefined, ean: ean || undefined, laboratorio: laboratorio || undefined, estado, precio: precio ? Number(precio) : undefined, observaciones: observaciones || undefined };
+      const payload = {
+        nombre, categoria,
+        presentacion: presentacion || undefined,
+        ean: ean || undefined,
+        laboratorio: laboratorio || undefined,
+        estado,
+        precio: precio ? Number(precio) : undefined,
+        observaciones: observaciones || undefined,
+      };
       if (isEdit && medicamento) {
         await actualizarMedicamento(medicamento.id, payload);
       } else {
         await crearMedicamento(payload);
       }
       onClose();
-    } catch { setError('Error al guardar el medicamento'); } finally { setSaving(false); }
+    } catch { setError('Error al guardar el medicamento'); }
+    finally { setSaving(false); }
   };
 
   if (!isOpen) return null;
 
+  const estadoOptions: { value: Estado; label: string }[] = [
+    { value: 'ACTIVO', label: 'Activo' },
+    { value: 'INACTIVO', label: 'Inactivo' },
+    { value: 'SUSPENDIDO', label: 'Suspendido' },
+  ];
+
+  const inputCls = 'h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20';
+  const selectCls = 'h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-900 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20 appearance-none';
+  const labelCls = 'mb-1.5 block text-xs font-medium text-gray-500';
+  const sectionHeadCls = 'mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-gray-400';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {isEdit ? 'Editar medicamento' : 'Nuevo medicamento'}
-          </h2>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100">
-            <X className="h-4 w-4" />
-          </button>
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-[#f5f7f5] shadow-2xl">
+
+        {/* Title area */}
+        <div className="px-8 pt-8 pb-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="font-serif text-3xl font-bold text-brand">
+                {isEdit ? 'Editar medicamento' : 'Nuevo medicamento'}
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">Modifique la información del producto seleccionado</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-200"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
-        <div className="p-6">
-          <div className="mb-5 grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <h3 className="mb-3 text-sm font-semibold text-gray-700">Información General</h3>
-              <div className="space-y-3">
+        {/* Body */}
+        <div className="px-8 pb-6">
+          <div className="grid grid-cols-2 gap-x-10 gap-y-6">
+            {/* Left — Información General */}
+            <div>
+              <div className={sectionHeadCls}>
+                <Info className="h-3.5 w-3.5" />
+                Información General
+              </div>
+              <div className="space-y-4">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Nombre</label>
-                  <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre del medicamento"
-                    className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none" />
+                  <label className={labelCls}>Nombre</label>
+                  <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)}
+                    placeholder="Nombre del medicamento" className={inputCls} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Categoría</label>
-                    <select value={categoria} onChange={(e) => setCategoria(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none">
-                      <option value="">Seleccionar...</option>
-                      {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                    <label className={labelCls}>Categoría</label>
+                    <div className="relative">
+                      <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className={selectCls}>
+                        <option value="">Seleccionar...</option>
+                        {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+                    </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Presentación</label>
-                    <input type="text" value={presentacion} onChange={(e) => setPresentacion(e.target.value)} placeholder="Ej: Comprimidos x 20"
-                      className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none" />
+                    <label className={labelCls}>Presentación</label>
+                    <input type="text" value={presentacion} onChange={(e) => setPresentacion(e.target.value)}
+                      placeholder="Ej: Caja x 16 comp." className={inputCls} />
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="col-span-2">
-              <h3 className="mb-3 text-sm font-semibold text-gray-700">Identificación</h3>
-              <div className="grid grid-cols-2 gap-3">
+            {/* Right — Identificación */}
+            <div>
+              <div className={sectionHeadCls}>
+                <BarChart2 className="h-3.5 w-3.5" />
+                Identificación
+              </div>
+              <div className="space-y-4">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">EAN</label>
-                  <input type="text" value={ean} onChange={(e) => setEan(e.target.value)} placeholder="Código EAN"
-                    className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none" />
+                  <label className={labelCls}>EAN</label>
+                  <input type="text" value={ean} onChange={(e) => setEan(e.target.value)}
+                    placeholder="Código de barras EAN" className={inputCls} />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Laboratorio</label>
-                  <select value={laboratorio} onChange={(e) => setLaboratorio(e.target.value)}
-                    className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none">
-                    <option value="">Seleccionar...</option>
-                    {laboratorios.map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Precio (PVP)</label>
-                  <input type="number" min={0} step="0.01" value={precio} onChange={(e) => setPrecio(e.target.value)} placeholder="$0.00"
-                    className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none" />
+                  <label className={labelCls}>Laboratorio</label>
+                  <div className="relative">
+                    <select value={laboratorio} onChange={(e) => setLaboratorio(e.target.value)} className={selectCls}>
+                      <option value="">Seleccionar...</option>
+                      {laboratorios.map((l) => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="col-span-2">
-              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-400">Estado del Producto</label>
-              <div className="flex gap-3">
-                {(['ACTIVO', 'INACTIVO', 'SUSPENDIDO'] as const).map((s) => (
-                  <label key={s} className="flex cursor-pointer items-center gap-2">
-                    <input type="radio" name="estado" checked={estado === s} onChange={() => setEstado(s)}
-                      className="h-4 w-4 border-gray-300 text-brand focus:ring-brand" />
-                    <span className="text-sm text-gray-700">{s.charAt(0) + s.slice(1).toLowerCase()}</span>
-                  </label>
+            {/* Precio (optional, left) */}
+            <div>
+              <div className={sectionHeadCls}>
+                <DollarSign className="h-3.5 w-3.5" />
+                Precio
+              </div>
+              <div>
+                <label className={labelCls}>Precio de Venta al Público</label>
+                <input type="number" min={0} step="0.01" value={precio} onChange={(e) => setPrecio(e.target.value)}
+                  placeholder="$0.00" className={inputCls} />
+              </div>
+            </div>
+
+            {/* Estado (right) */}
+            <div>
+              <div className={sectionHeadCls}>
+                <MoreHorizontal className="h-3.5 w-3.5" />
+                Estado del Producto
+              </div>
+              <div className="flex gap-2">
+                {estadoOptions.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setEstado(value)}
+                    className={`flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
+                      estado === value
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-200/80 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {estado === value && <span className="flex h-4 w-4 items-center justify-center rounded-full bg-green-700 text-white text-[10px]">✓</span>}
+                    {label}
+                  </button>
                 ))}
               </div>
             </div>
 
+            {/* Observaciones — full width */}
             <div className="col-span-2">
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-400">Observaciones</label>
-              <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} placeholder="Notas adicionales..."
-                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand focus:outline-none resize-none" />
+              <div className={sectionHeadCls}>
+                <MoreHorizontal className="h-3.5 w-3.5" />
+                Información Adicional
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Laboratorio (detalle)</label>
+                  <div className="relative">
+                    <select value={laboratorio} onChange={(e) => setLaboratorio(e.target.value)} className={selectCls}>
+                      <option value="">Seleccionar...</option>
+                      {laboratorios.map((l) => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}>Observaciones</label>
+                  <input type="text" value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
+                    placeholder="Ej: Mantener en lugar fresco y seco." className={inputCls} />
+                </div>
+              </div>
             </div>
           </div>
 
-          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
         </div>
 
-        <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
-          {isEdit ? (
-            <button className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700">
-              <Trash2 className="h-4 w-4" />
-              Eliminar medicamento
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-gray-200 bg-gray-100/60 px-8 py-4">
+          <button className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700">
+            <Trash2 className="h-4 w-4" />
+            Eliminar medicamento
+          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose}
+              className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900">
+              Cancelar
             </button>
-          ) : <div />}
-          <div className="flex gap-3">
-            <button onClick={onClose} className="rounded-xl border border-gray-200 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancelar</button>
             <button onClick={handleSubmit} disabled={saving}
-              className="rounded-xl bg-brand px-5 py-2 text-sm font-medium text-white hover:bg-brand-light disabled:opacity-50">
-              {saving ? <Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> : null}
+              className="flex items-center gap-2 rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-light disabled:opacity-50">
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
               Guardar cambios
             </button>
           </div>
