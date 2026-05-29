@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FileText, QrCode, CheckCircle2, Loader2 } from 'lucide-react';
 import { validarReceta, registrarConsumo } from '../api/pacientes';
 import type { RecetaDetalle } from '../types';
+import QRScannerModal from '../components/pacientes/QRScannerModal';
 
 export default function Pacientes() {
   const [recetaId, setRecetaId] = useState('');
@@ -11,15 +12,18 @@ export default function Pacientes() {
   const [consumos, setConsumos] = useState<Record<number, number>>({});
   const [savingConsumo, setSavingConsumo] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
-  const handleValidar = async () => {
-    if (!recetaId.trim()) return;
+  const handleValidar = async (id?: string) => {
+    const idToUse = (id ?? recetaId).trim();
+    if (!idToUse) return;
     try {
       setLoading(true);
       setError(null);
       setSuccessMsg(null);
-      const result = await validarReceta(recetaId.trim());
+      const result = await validarReceta(idToUse);
       setReceta(result);
+      setRecetaId(idToUse);
       setConsumos({});
     } catch {
       setError('Receta no encontrada o inválida');
@@ -27,6 +31,15 @@ export default function Pacientes() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleQRScan = (data: string) => {
+    // The QR may contain a full ID or a URL with the ID embedded
+    // Try to extract a pattern like REC-XXXX-XXXX or use the raw value
+    const match = data.match(/REC-\w+-\w+/i) ?? data.match(/receta[=/](\S+)/i);
+    const extracted = match ? match[0] : data.trim();
+    setRecetaId(extracted);
+    handleValidar(extracted);
   };
 
   const handleRegistrarConsumo = async () => {
@@ -78,7 +91,7 @@ export default function Pacientes() {
           </div>
 
           <button
-            onClick={handleValidar}
+            onClick={() => handleValidar()}
             disabled={loading}
             className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-white hover:bg-brand-light disabled:opacity-60"
           >
@@ -90,9 +103,12 @@ export default function Pacientes() {
             Validar receta
           </button>
 
-          <button className="mt-3 flex w-full items-center justify-center gap-2 text-sm font-medium text-gray-500 hover:text-brand">
+          <button
+            onClick={() => setQrScannerOpen(true)}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:border-green-300 hover:bg-green-50 hover:text-green-700 transition-colors"
+          >
             <QrCode className="h-4 w-4" />
-            Validar por QR
+            Escanear QR con cámara
           </button>
 
           {error && (
@@ -201,6 +217,13 @@ export default function Pacientes() {
           </div>
         )}
       </div>
+
+      {/* QR Scanner Modal */}
+      <QRScannerModal
+        isOpen={qrScannerOpen}
+        onClose={() => setQrScannerOpen(false)}
+        onScan={handleQRScan}
+      />
     </div>
   );
 }
