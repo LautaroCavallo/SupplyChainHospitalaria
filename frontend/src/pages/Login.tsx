@@ -1,20 +1,29 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { login } from '../api/auth';
 
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    // Simulate login
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
-    navigate('/');
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await login(email, password);
+      localStorage.setItem('healthgrid_token', result.token);
+      localStorage.setItem('healthgrid_user', JSON.stringify(result.user));
+      navigate('/');
+    } catch {
+      setError('No se pudo iniciar sesión con Core');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -84,6 +93,13 @@ export default function Login() {
             >
               {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </button>
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                {error}
+              </div>
+            )}
           </form>
         </div>
       </div>

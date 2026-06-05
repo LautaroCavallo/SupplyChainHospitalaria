@@ -26,7 +26,9 @@ export interface CreateRecepcionData {
 }
 
 export interface UpdateRecepcionData {
+  proveedorId?: string;
   remito?: string;
+  fechaRecepcion?: Date;
   observaciones?: string;
   estado?: EstadoRecepcion;
   detalles?: {

@@ -183,7 +183,7 @@ const MEDICAMENTOS: MedicamentoVademecum[] = [
   },
 ];
 
-export class MockVademecumService implements IVademecumService {
+export class VademecumFixtureService implements IVademecumService {
   async buscarMedicamentos(query: string): Promise<MedicamentoVademecum[]> {
     if (!query || query.trim().length === 0) {
       return MEDICAMENTOS;

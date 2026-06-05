@@ -25,6 +25,22 @@ model Proveedor {
   @@map("proveedores")
 }
 
+model MedicamentoGenerico {
+  id                  String   @id @default(uuid())
+  nombre              String
+  principioActivo     String
+  dosis               String?
+  formaFarmaceutica   String?
+  nombreNormalizado   String   @unique
+  activo              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  productos           ProductoInventario[]
+
+  @@map("medicamentos_genericos")
+}
+
 model ProductoInventario {
   id              String   @id @default(uuid())
   nombre          String
@@ -39,11 +55,13 @@ model ProductoInventario {
   stockCritico    Int      @default(5)
   unidad          String   @default("unidad")
   proveedorId     String?
+  genericoId      String?
   activo          Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   proveedor       Proveedor?       @relation(fields: [proveedorId], references: [id])
+  generico        MedicamentoGenerico? @relation(fields: [genericoId], references: [id])
   lotes           Lote[]
   movimientos     MovimientoStock[]
   recepcionItems  RecepcionDetalle[]

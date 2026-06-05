@@ -9,6 +9,7 @@ export function inventarioRoutes(container: Container): Router {
   const controller = new InventarioController(
     container.listarInventario,
     container.obtenerProductoInventario,
+    container.obtenerProductoPorEan,
     container.ajustarStock,
     container.obtenerMovimientos,
     container.obtenerLotes,
@@ -22,6 +23,12 @@ export function inventarioRoutes(container: Container): Router {
     query('estado').optional({ values: 'falsy' }).isIn(['CRITICO', 'BAJO', 'SIN_STOCK', 'NORMAL']),
     validateRequest,
     controller.list,
+  );
+
+  router.get('/ean/:ean',
+    param('ean').matches(/^\d{8}$|^\d{12,13}$/).withMessage('EAN inválido'),
+    validateRequest,
+    controller.getByEan,
   );
 
   router.get('/:id',

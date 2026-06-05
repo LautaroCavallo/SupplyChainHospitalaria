@@ -1,13 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, Edit, Eye, Plus, Loader2, TrendingUp, AlertTriangle, Ban,
+  Search, Edit, Eye, Loader2, TrendingUp, AlertTriangle, Ban,
 } from 'lucide-react';
 import { getInventario, getInventarioSummary, ajustarStock } from '../api/inventario';
 import type { ProductoInventario, NivelStock, PaginatedResponse } from '../types';
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
 import AjusteStockModal from '../components/inventario/AjusteStockModal';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 function getNivelStock(p: ProductoInventario): NivelStock {
   if (p.nivelStock) return p.nivelStock;
@@ -25,6 +27,14 @@ const nivelConfig: Record<NivelStock, { label: string; variant: 'success' | 'war
 };
 
 const categorias = ['Antibióticos', 'Analgésicos', 'Endocrinología', 'Anestesia', 'Cardiología', 'Otro'];
+type SortKey = 'nombre' | 'troquel' | 'ean' | 'stockActual' | 'estado';
+
+const nivelSortOrder: Record<NivelStock, number> = {
+  NORMAL: 0,
+  BAJO: 1,
+  CRITICO: 2,
+  SIN_STOCK: 3,
+};
 
 export default function Inventario() {
   const navigate = useNavigate();
@@ -38,6 +48,10 @@ export default function Inventario() {
   const [summary, setSummary] = useState({ totalProductos: 0, alertaBajoStock: 0, sinStock: 0 });
   const [ajusteModal, setAjusteModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ProductoInventario | null>(null);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'nombre',
+    direction: 'asc',
+  });
 
   const fetchData = useCallback(async () => {
     try {
@@ -63,6 +77,29 @@ export default function Inventario() {
     if (!selectedProduct) return;
     await ajustarStock(selectedProduct.id, ajusteData);
     await fetchData();
+  };
+
+  const sortedProducts = useMemo(() => {
+    const products = data?.data ?? [];
+
+    return [...products].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === 'nombre') result = compareText(a.nombre, b.nombre);
+      if (sort.key === 'troquel') result = compareText(a.troquel, b.troquel);
+      if (sort.key === 'ean') result = compareText(a.ean, b.ean);
+      if (sort.key === 'stockActual') result = compareNumber(a.stockActual, b.stockActual);
+      if (sort.key === 'estado') result = nivelSortOrder[getNivelStock(a)] - nivelSortOrder[getNivelStock(b)];
+
+      return applySortDirection(result, sort.direction);
+    });
+  }, [data?.data, sort]);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({
+      key,
+      direction: nextSortDirection(current, key),
+    }));
   };
 
   return (
@@ -186,28 +223,18 @@ export default function Inventario() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
-                    Medicamento
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
-                    Troquel
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
-                    EAN
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
-                    Stock Actual
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
-                    Estado
-                  </th>
+                  <SortableTh label="Medicamento" sortKey="nombre" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Troquel" sortKey="troquel" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="EAN" sortKey="ean" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Stock Actual" sortKey="stockActual" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Estado" sortKey="estado" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">
                     Acciones
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {data?.data.map((p) => {
+                {sortedProducts.map((p) => {
                   const nivel = getNivelStock(p);
                   const config = nivelConfig[nivel];
                   const isSinStock = nivel === 'SIN_STOCK';
@@ -254,7 +281,7 @@ export default function Inventario() {
                     </tr>
                   );
                 })}
-                {data?.data.length === 0 && (
+                {sortedProducts.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
                       No se encontraron productos
@@ -277,15 +304,6 @@ export default function Inventario() {
           </>
         )}
       </div>
-
-      <button
-        onClick={() => { setSelectedProduct(null); setAjusteModal(true); }}
-        className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-medium text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-light"
-        title="Ajuste de stock"
-      >
-        <Plus className="h-5 w-5" />
-        Nuevo ajuste
-      </button>
 
       <AjusteStockModal
         isOpen={ajusteModal}

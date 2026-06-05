@@ -46,6 +46,81 @@ async function main() {
     }),
   ]);
 
+  const genericos = await Promise.all([
+    prisma.medicamentoGenerico.create({
+      data: {
+        nombre: 'Amoxicilina 500mg',
+        principioActivo: 'Amoxicilina',
+        dosis: '500mg',
+        formaFarmaceutica: 'Cápsula',
+        nombreNormalizado: 'amoxicilina-500mg-capsula',
+      },
+    }),
+    prisma.medicamentoGenerico.create({
+      data: {
+        nombre: 'Insulina Glargina 100 UI',
+        principioActivo: 'Insulina Glargina',
+        dosis: '100 UI',
+        formaFarmaceutica: 'Inyectable',
+        nombreNormalizado: 'insulina-glargina-100ui-inyectable',
+      },
+    }),
+    prisma.medicamentoGenerico.create({
+      data: {
+        nombre: 'Propofol 1% 20ml',
+        principioActivo: 'Propofol',
+        dosis: '1% 20ml',
+        formaFarmaceutica: 'Ampolla',
+        nombreNormalizado: 'propofol-1-20ml-ampolla',
+      },
+    }),
+    prisma.medicamentoGenerico.create({
+      data: {
+        nombre: 'Ibuprofeno 400mg',
+        principioActivo: 'Ibuprofeno',
+        dosis: '400mg',
+        formaFarmaceutica: 'Comprimido',
+        nombreNormalizado: 'ibuprofeno-400mg-comprimido',
+      },
+    }),
+    prisma.medicamentoGenerico.create({
+      data: {
+        nombre: 'Dexametasona 4mg',
+        principioActivo: 'Dexametasona',
+        dosis: '4mg',
+        formaFarmaceutica: 'Comprimido',
+        nombreNormalizado: 'dexametasona-4mg-comprimido',
+      },
+    }),
+    prisma.medicamentoGenerico.create({
+      data: {
+        nombre: 'Omeprazol 20mg',
+        principioActivo: 'Omeprazol',
+        dosis: '20mg',
+        formaFarmaceutica: 'Cápsula',
+        nombreNormalizado: 'omeprazol-20mg-capsula',
+      },
+    }),
+    prisma.medicamentoGenerico.create({
+      data: {
+        nombre: 'Paracetamol 500mg',
+        principioActivo: 'Paracetamol',
+        dosis: '500mg',
+        formaFarmaceutica: 'Comprimido',
+        nombreNormalizado: 'paracetamol-500mg-comprimido',
+      },
+    }),
+    prisma.medicamentoGenerico.create({
+      data: {
+        nombre: 'Diclofenac 75mg',
+        principioActivo: 'Diclofenac',
+        dosis: '75mg',
+        formaFarmaceutica: 'Comprimido',
+        nombreNormalizado: 'diclofenac-75mg-comprimido',
+      },
+    }),
+  ]);
+
   const productos = await Promise.all([
     prisma.productoInventario.create({
       data: {
@@ -61,6 +136,7 @@ async function main() {
         stockCritico: 50,
         unidad: 'unidad',
         proveedorId: proveedores[3].id,
+        genericoId: genericos[0].id,
       },
     }),
     prisma.productoInventario.create({
@@ -77,6 +153,7 @@ async function main() {
         stockCritico: 15,
         unidad: 'unidad',
         proveedorId: proveedores[0].id,
+        genericoId: genericos[1].id,
       },
     }),
     prisma.productoInventario.create({
@@ -93,6 +170,7 @@ async function main() {
         stockCritico: 10,
         unidad: 'unidad',
         proveedorId: proveedores[1].id,
+        genericoId: genericos[2].id,
       },
     }),
     prisma.productoInventario.create({
@@ -109,6 +187,7 @@ async function main() {
         stockCritico: 100,
         unidad: 'unidad',
         proveedorId: proveedores[2].id,
+        genericoId: genericos[3].id,
       },
     }),
     prisma.productoInventario.create({
@@ -125,6 +204,7 @@ async function main() {
         stockCritico: 25,
         unidad: 'unidad',
         proveedorId: proveedores[3].id,
+        genericoId: genericos[4].id,
       },
     }),
     prisma.productoInventario.create({
@@ -141,6 +221,7 @@ async function main() {
         stockCritico: 50,
         unidad: 'unidad',
         proveedorId: proveedores[0].id,
+        genericoId: genericos[5].id,
       },
     }),
     prisma.productoInventario.create({
@@ -157,6 +238,7 @@ async function main() {
         stockCritico: 100,
         unidad: 'unidad',
         proveedorId: proveedores[1].id,
+        genericoId: genericos[6].id,
       },
     }),
     prisma.productoInventario.create({
@@ -205,6 +287,7 @@ async function main() {
         stockCritico: 50,
         unidad: 'unidad',
         proveedorId: proveedores[3].id,
+        genericoId: genericos[7].id,
       },
     }),
   ]);

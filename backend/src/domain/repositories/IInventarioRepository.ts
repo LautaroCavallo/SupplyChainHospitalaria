@@ -6,6 +6,7 @@ export interface FiltrosInventario {
   nivelStock?: NivelStock;
   activo?: boolean;
   proveedorId?: string;
+  genericoId?: string;
   page?: number;
   limit?: number;
 }
@@ -22,6 +23,7 @@ export interface CreateProductoData {
   stockCritico?: number;
   unidad: string;
   proveedorId?: string;
+  genericoId?: string;
 }
 
 export interface UpdateProductoData {
@@ -36,6 +38,7 @@ export interface UpdateProductoData {
   stockCritico?: number;
   unidad?: string;
   proveedorId?: string;
+  genericoId?: string;
   activo?: boolean;
 }
 
@@ -44,6 +47,7 @@ export interface IInventarioRepository {
   findById(id: string): Promise<ProductoInventario | null>;
   findByEan(ean: string): Promise<ProductoInventario | null>;
   findByTroquel(troquel: string): Promise<ProductoInventario | null>;
+  findByGenerico(nombreGenerico: string): Promise<ProductoInventario[]>;
   create(data: CreateProductoData): Promise<ProductoInventario>;
   update(id: string, data: UpdateProductoData): Promise<ProductoInventario>;
   updateStock(id: string, cantidad: number): Promise<ProductoInventario>;

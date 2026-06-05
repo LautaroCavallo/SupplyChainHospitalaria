@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ListarInventario } from '../../../application/use-cases/inventario/ListarInventario';
 import { ObtenerProductoInventario } from '../../../application/use-cases/inventario/ObtenerProductoInventario';
+import { ObtenerProductoPorEan } from '../../../application/use-cases/inventario/ObtenerProductoPorEan';
 import { AjustarStock } from '../../../application/use-cases/inventario/AjustarStock';
 import { ObtenerMovimientos } from '../../../application/use-cases/inventario/ObtenerMovimientos';
 import { ObtenerLotes } from '../../../application/use-cases/inventario/ObtenerLotes';
@@ -9,6 +10,7 @@ export class InventarioController {
   constructor(
     private listarInventario: ListarInventario,
     private obtenerProductoInventario: ObtenerProductoInventario,
+    private obtenerProductoPorEan: ObtenerProductoPorEan,
     private ajustarStockUC: AjustarStock,
     private obtenerMovimientos: ObtenerMovimientos,
     private obtenerLotes: ObtenerLotes,
@@ -32,6 +34,15 @@ export class InventarioController {
   getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const data = await this.obtenerProductoInventario.execute(req.params.id as string);
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getByEan = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const data = await this.obtenerProductoPorEan.execute(req.params.ean as string);
       res.json({ success: true, data });
     } catch (error) {
       next(error);

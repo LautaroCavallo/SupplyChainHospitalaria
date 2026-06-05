@@ -10,4 +10,11 @@ export const config = {
     origin: process.env.CORS_ORIGIN || '*',
   },
   logLevel: process.env.LOG_LEVEL || 'info',
+  integrations: {
+    coreApiUrl: process.env.CORE_API_URL || '',
+    hceApiUrl: process.env.HCE_API_URL || '',
+    externalTimeoutMs: parseInt(process.env.EXTERNAL_TIMEOUT_MS || '8000', 10),
+    authMode: process.env.AUTH_MODE || 'mock',
+    recetaMode: process.env.RECETA_MODE || 'mock',
+  },
 };

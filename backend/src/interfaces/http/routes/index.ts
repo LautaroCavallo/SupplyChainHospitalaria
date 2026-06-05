@@ -7,10 +7,12 @@ import { recepcionRoutes } from './recepcion.routes';
 import { alertaRoutes } from './alerta.routes';
 import { solicitudCompraRoutes } from './solicitud-compra.routes';
 import { recetaRoutes } from './receta.routes';
+import { authRoutes } from './auth.routes';
 
 export function createRoutes(container: Container): Router {
   const router = Router();
 
+  router.use('/auth', authRoutes(container));
   router.use('/vademecum', vademecumRoutes(container));
   router.use('/proveedores', proveedorRoutes(container));
   router.use('/inventario', inventarioRoutes(container));

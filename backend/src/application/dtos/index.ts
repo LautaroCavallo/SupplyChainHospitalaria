@@ -66,6 +66,14 @@ export interface ProductoInventarioResponseDTO {
   stockCritico: number;
   unidad: string;
   proveedor?: { id: string; razonSocial: string } | null;
+  genericoId?: string | null;
+  generico?: {
+    id: string;
+    nombre: string;
+    principioActivo: string;
+    dosis?: string | null;
+    formaFarmaceutica?: string | null;
+  } | null;
   estado?: string;
   activo: boolean;
 }

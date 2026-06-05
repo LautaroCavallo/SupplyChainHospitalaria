@@ -12,6 +12,7 @@ export interface RecetaValidacion {
 export interface RecetaItem {
   productoId: string;
   nombre: string;
+  medicamento?: string;
   cantidad: number;
   indicaciones?: string;
 }

@@ -1,26 +1,35 @@
 import { IRecepcionRepository } from '../../../domain/repositories/IRecepcionRepository';
 import { IProveedorRepository } from '../../../domain/repositories/IProveedorRepository';
 import { CrearRecepcionDTO, RecepcionResponseDTO } from '../../dtos';
-import { NotFoundError } from '../../errors/AppError';
+import { NotFoundError, ConflictError } from '../../errors/AppError';
 
-export class CrearRecepcion {
+export class ActualizarRecepcion {
   constructor(
     private readonly recepcionRepository: IRecepcionRepository,
     private readonly proveedorRepository: IProveedorRepository,
   ) {}
 
-  async execute(dto: CrearRecepcionDTO): Promise<RecepcionResponseDTO> {
+  async execute(id: string, dto: CrearRecepcionDTO): Promise<RecepcionResponseDTO> {
+    const recepcion = await this.recepcionRepository.findById(id);
+    if (!recepcion) {
+      throw new NotFoundError(`Recepción con id ${id} no encontrada`);
+    }
+
+    if (recepcion.estado !== 'BORRADOR') {
+      throw new ConflictError('Solo se pueden modificar recepciones en estado BORRADOR');
+    }
+
     const proveedor = await this.proveedorRepository.findById(dto.proveedorId);
     if (!proveedor) {
       throw new NotFoundError(`Proveedor con id ${dto.proveedorId} no encontrado`);
     }
 
-    const result = await this.recepcionRepository.create({
+    const result = await this.recepcionRepository.update(id, {
       proveedorId: dto.proveedorId,
       remito: dto.remito,
       fechaRecepcion: dto.fechaRecepcion ? new Date(dto.fechaRecepcion) : undefined,
       observaciones: dto.observaciones,
-      detalles: dto.detalles.map(d => ({
+      detalles: dto.detalles.map((d) => ({
         productoId: d.productoId,
         cantidad: d.cantidad,
         ean: d.ean,
@@ -29,6 +38,7 @@ export class CrearRecepcion {
         fechaVencimiento: new Date(d.fechaVencimiento),
       })),
     });
+
     return result as unknown as RecepcionResponseDTO;
   }
 }

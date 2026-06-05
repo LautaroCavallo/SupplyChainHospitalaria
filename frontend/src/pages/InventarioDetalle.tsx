@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronRight, History, AlertTriangle, Loader2 } from 'lucide-react';
 import { getProducto, getLotes } from '../api/inventario';
 import type { ProductoInventario, Lote, NivelStock, EstadoLote } from '../types';
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 function formatDate(d: string): string {
   const dt = new Date(d);
@@ -42,6 +44,13 @@ const estadoFilterOptions: { label: string; value: string }[] = [
 ];
 
 const LIMIT = 10;
+type SortKey = 'numeroLote' | 'fechaVencimiento' | 'stockDisponible' | 'estado';
+
+const estadoLoteSortOrder: Record<EstadoLote, number> = {
+  VIGENTE: 0,
+  PROXIMO_A_VENCER: 1,
+  VENCIDO: 2,
+};
 
 export default function InventarioDetalle() {
   const { id } = useParams<{ id: string }>();
@@ -52,6 +61,10 @@ export default function InventarioDetalle() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'fechaVencimiento',
+    direction: 'asc',
+  });
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -69,6 +82,32 @@ export default function InventarioDetalle() {
   }, [id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filteredLotes = useMemo(() => {
+    return estadoFilter
+      ? lotes.filter((l) => l.estado === estadoFilter)
+      : lotes;
+  }, [estadoFilter, lotes]);
+
+  const sortedLotes = useMemo(() => {
+    return [...filteredLotes].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === 'numeroLote') result = compareText(a.numeroLote, b.numeroLote);
+      if (sort.key === 'fechaVencimiento') result = compareDate(a.fechaVencimiento, b.fechaVencimiento);
+      if (sort.key === 'stockDisponible') result = compareNumber(a.stockDisponible, b.stockDisponible);
+      if (sort.key === 'estado') result = estadoLoteSortOrder[a.estado] - estadoLoteSortOrder[b.estado];
+
+      return applySortDirection(result, sort.direction);
+    });
+  }, [filteredLotes, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedLotes.length / LIMIT));
+  const pagedLotes = sortedLotes.slice((page - 1) * LIMIT, page * LIMIT);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
 
   if (loading) {
     return (
@@ -91,12 +130,6 @@ export default function InventarioDetalle() {
 
   const nivel = getNivelStock(producto);
   const hasProximoAVencer = lotes.some((l) => l.estado === 'PROXIMO_A_VENCER');
-
-  const filteredLotes = estadoFilter
-    ? lotes.filter((l) => l.estado === estadoFilter)
-    : lotes;
-  const totalPages = Math.max(1, Math.ceil(filteredLotes.length / LIMIT));
-  const pagedLotes = filteredLotes.slice((page - 1) * LIMIT, page * LIMIT);
 
   return (
     <div>
@@ -194,10 +227,10 @@ export default function InventarioDetalle() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/50">
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Número de Lote</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Fecha de Vencimiento</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Stock Disponible</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Estado</th>
+              <SortableTh label="Número de Lote" sortKey="numeroLote" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+              <SortableTh label="Fecha de Vencimiento" sortKey="fechaVencimiento" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+              <SortableTh label="Stock Disponible" sortKey="stockDisponible" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+              <SortableTh label="Estado" sortKey="estado" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
               <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">Acciones</th>
             </tr>
           </thead>
@@ -239,7 +272,7 @@ export default function InventarioDetalle() {
         </table>
         <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
           <p className="text-sm text-gray-500">
-            Mostrando {pagedLotes.length} de {filteredLotes.length}
+            Mostrando {pagedLotes.length} de {sortedLotes.length}
           </p>
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>

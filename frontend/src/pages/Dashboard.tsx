@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, AlertTriangle, Clock, ArrowRight, Loader2 } from 'lucide-react';
 import { getDashboard, getActividadReciente } from '../api/dashboard';
 import type { DashboardSummary, ActividadReciente } from '../types';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareText, nextSortDirection } from '../utils/sort';
 
 const eventoColors: Record<string, string> = {
   receta_validada: 'bg-green-500',
@@ -12,11 +14,17 @@ const eventoColors: Record<string, string> = {
   otro: 'bg-gray-300',
 };
 
+type SortKey = 'evento' | 'referencia' | 'hora' | 'responsable';
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [summary, setSummary] = useState<DashboardSummary>({ recetasValidadas: 124, medicamentosCriticos: 8, actividadReciente: 45 });
   const [actividad, setActividad] = useState<ActividadReciente[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'hora',
+    direction: 'desc',
+  });
 
   const fetchData = useCallback(async () => {
     try {
@@ -35,6 +43,23 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const sortedActividad = useMemo(() => {
+    return [...actividad].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === 'evento') result = compareText(a.evento, b.evento);
+      if (sort.key === 'referencia') result = compareText(a.referencia ?? a.producto, b.referencia ?? b.producto);
+      if (sort.key === 'hora') result = compareText(a.hora, b.hora);
+      if (sort.key === 'responsable') result = compareText(a.responsable, b.responsable);
+
+      return applySortDirection(result, sort.direction);
+    });
+  }, [actividad, sort]);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
 
   return (
     <div className="min-h-full">
@@ -120,22 +145,14 @@ export default function Dashboard() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-50">
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
-                Evento
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
-                Referencia / Producto
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
-                Hora
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">
-                Responsable
-              </th>
+              <SortableTh label="Evento" sortKey="evento" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+              <SortableTh label="Referencia / Producto" sortKey="referencia" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+              <SortableTh label="Hora" sortKey="hora" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+              <SortableTh label="Responsable" sortKey="responsable" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {actividad.map((a) => (
+            {sortedActividad.map((a) => (
               <tr key={a.id} className="hover:bg-gray-50/50">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2.5">

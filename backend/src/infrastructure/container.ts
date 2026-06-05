@@ -4,9 +4,12 @@ import { PrismaLoteRepository } from './database/repositories/PrismaLoteReposito
 import { PrismaMovimientoStockRepository } from './database/repositories/PrismaMovimientoStockRepository';
 import { PrismaRecepcionRepository } from './database/repositories/PrismaRecepcionRepository';
 import { PrismaSolicitudCompraRepository } from './database/repositories/PrismaSolicitudCompraRepository';
-import { MockVademecumService } from './external/mock/MockVademecumService';
-import { MockRecetaService } from './external/mock/MockRecetaService';
-import { MockComprasService } from './external/mock/MockComprasService';
+import { VademecumFixtureService } from './external/fixtures/VademecumFixtureService';
+import { RecetaFixtureService } from './external/fixtures/RecetaFixtureService';
+import { ComprasFixtureService } from './external/fixtures/ComprasFixtureService';
+import { CoreAuthService } from './external/core/CoreAuthService';
+import { HceRecetaService } from './external/hce/HceRecetaService';
+import { config } from '../config';
 
 import { BuscarMedicamentos } from '../application/use-cases/vademecum/BuscarMedicamentos';
 import { ObtenerMedicamento } from '../application/use-cases/vademecum/ObtenerMedicamento';
@@ -17,6 +20,7 @@ import { ActualizarProveedor } from '../application/use-cases/proveedores/Actual
 import { EliminarProveedor } from '../application/use-cases/proveedores/EliminarProveedor';
 import { ListarInventario } from '../application/use-cases/inventario/ListarInventario';
 import { ObtenerProductoInventario } from '../application/use-cases/inventario/ObtenerProductoInventario';
+import { ObtenerProductoPorEan } from '../application/use-cases/inventario/ObtenerProductoPorEan';
 import { AjustarStock } from '../application/use-cases/inventario/AjustarStock';
 import { ObtenerMovimientos } from '../application/use-cases/inventario/ObtenerMovimientos';
 import { ObtenerLotes } from '../application/use-cases/inventario/ObtenerLotes';
@@ -24,6 +28,7 @@ import { DetectarStockCritico } from '../application/use-cases/alertas/DetectarS
 import { ListarRecepciones } from '../application/use-cases/recepciones/ListarRecepciones';
 import { ObtenerRecepcion } from '../application/use-cases/recepciones/ObtenerRecepcion';
 import { CrearRecepcion } from '../application/use-cases/recepciones/CrearRecepcion';
+import { ActualizarRecepcion } from '../application/use-cases/recepciones/ActualizarRecepcion';
 import { ConfirmarRecepcion } from '../application/use-cases/recepciones/ConfirmarRecepcion';
 import { ProcesarRecepcion } from '../application/use-cases/recepciones/ProcesarRecepcion';
 import { ListarSolicitudesCompra } from '../application/use-cases/solicitudes/ListarSolicitudesCompra';
@@ -32,6 +37,7 @@ import { ValidarReceta } from '../application/use-cases/recetas/ValidarReceta';
 import { ConsumirReceta } from '../application/use-cases/recetas/ConsumirReceta';
 
 export function createContainer() {
+  let currentAuthToken: string | undefined;
   const proveedorRepo = new PrismaProveedorRepository();
   const inventarioRepo = new PrismaInventarioRepository();
   const loteRepo = new PrismaLoteRepository();
@@ -39,9 +45,13 @@ export function createContainer() {
   const recepcionRepo = new PrismaRecepcionRepository();
   const solicitudCompraRepo = new PrismaSolicitudCompraRepository();
 
-  const vademecumService = new MockVademecumService();
-  const recetaService = new MockRecetaService();
-  const _comprasService = new MockComprasService();
+  const vademecumService = new VademecumFixtureService();
+  const coreAuthService = new CoreAuthService();
+  const hceRecetaService = new HceRecetaService(() => currentAuthToken);
+  const recetaService = config.integrations.recetaMode === 'hce' && hceRecetaService.enabled
+    ? hceRecetaService
+    : new RecetaFixtureService();
+  const _comprasService = new ComprasFixtureService();
 
   const buscarMedicamentos = new BuscarMedicamentos(vademecumService);
   const obtenerMedicamento = new ObtenerMedicamento(vademecumService);
@@ -54,6 +64,7 @@ export function createContainer() {
 
   const listarInventario = new ListarInventario(inventarioRepo);
   const obtenerProductoInventario = new ObtenerProductoInventario(inventarioRepo);
+  const obtenerProductoPorEan = new ObtenerProductoPorEan(inventarioRepo);
   const ajustarStock = new AjustarStock(inventarioRepo, movimientoRepo, loteRepo);
   const obtenerMovimientos = new ObtenerMovimientos(movimientoRepo);
   const obtenerLotes = new ObtenerLotes(loteRepo);
@@ -63,6 +74,7 @@ export function createContainer() {
   const listarRecepciones = new ListarRecepciones(recepcionRepo);
   const obtenerRecepcion = new ObtenerRecepcion(recepcionRepo);
   const crearRecepcion = new CrearRecepcion(recepcionRepo, proveedorRepo);
+  const actualizarRecepcion = new ActualizarRecepcion(recepcionRepo, proveedorRepo);
   const confirmarRecepcion = new ConfirmarRecepcion(recepcionRepo);
   const procesarRecepcion = new ProcesarRecepcion(recepcionRepo, inventarioRepo, loteRepo, movimientoRepo);
 
@@ -82,6 +94,7 @@ export function createContainer() {
     eliminarProveedor,
     listarInventario,
     obtenerProductoInventario,
+    obtenerProductoPorEan,
     ajustarStock,
     obtenerMovimientos,
     obtenerLotes,
@@ -89,12 +102,17 @@ export function createContainer() {
     listarRecepciones,
     obtenerRecepcion,
     crearRecepcion,
+    actualizarRecepcion,
     confirmarRecepcion,
     procesarRecepcion,
     listarSolicitudesCompra,
     crearSolicitudCompra,
     validarReceta,
     consumirReceta,
+    coreAuthService,
+    setCurrentAuthToken: (token?: string) => {
+      currentAuthToken = token;
+    },
   };
 }
 

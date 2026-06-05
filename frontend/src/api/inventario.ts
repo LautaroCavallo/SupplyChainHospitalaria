@@ -38,6 +38,11 @@ export async function getProducto(id: string): Promise<ProductoInventario> {
   return res.data.data;
 }
 
+export async function getProductoPorEan(ean: string): Promise<ProductoInventario> {
+  const res = await api.get(`/inventario/ean/${ean}`);
+  return res.data.data;
+}
+
 export async function ajustarStock(
   id: string,
   data: { tipo: string; cantidad: number; motivo: string; loteId?: string }

@@ -22,6 +22,15 @@ export class ProductoInventario {
   unidad: string;
   proveedorId?: string;
   proveedor?: { id: string; razonSocial: string } | null;
+  genericoId?: string;
+  generico?: {
+    id: string;
+    nombre: string;
+    principioActivo: string;
+    dosis?: string | null;
+    formaFarmaceutica?: string | null;
+    nombreNormalizado: string;
+  } | null;
   activo: boolean;
   readonly createdAt: Date;
   updatedAt: Date;
@@ -41,6 +50,15 @@ export class ProductoInventario {
     unidad: string;
     proveedorId?: string;
     proveedor?: { id: string; razonSocial: string } | null;
+    genericoId?: string;
+    generico?: {
+      id: string;
+      nombre: string;
+      principioActivo: string;
+      dosis?: string | null;
+      formaFarmaceutica?: string | null;
+      nombreNormalizado: string;
+    } | null;
     activo?: boolean;
     createdAt?: Date;
     updatedAt?: Date;
@@ -59,6 +77,8 @@ export class ProductoInventario {
     this.unidad = props.unidad;
     this.proveedorId = props.proveedorId;
     this.proveedor = props.proveedor ?? null;
+    this.genericoId = props.genericoId;
+    this.generico = props.generico ?? null;
     this.activo = props.activo ?? true;
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? new Date();

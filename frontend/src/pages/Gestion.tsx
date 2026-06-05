@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Plus, Edit, Trash2, Eye, TrendingUp, CheckCircle, XCircle, Loader2, Pill, Beaker, Syringe, Package } from 'lucide-react';
 import { getMedicamentos, getMedicamentosSummary, eliminarMedicamento } from '../api/medicamentos';
 import { getProveedores, eliminarProveedor } from '../api/proveedores';
@@ -8,8 +8,18 @@ import Pagination from '../components/common/Pagination';
 import MedicamentoModal from '../components/gestion/MedicamentoModal';
 import ProveedorDetalleModal from '../components/gestion/ProveedorDetalleModal';
 import ProveedorFormModal from '../components/gestion/ProveedorFormModal';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 const categorias = ['Analgésicos', 'Antibióticos', 'Cardiología', 'Endocrinología', 'Anestesia', 'Otro'];
+type MedSortKey = 'nombre' | 'categoria' | 'presentacion' | 'ean' | 'laboratorio' | 'estado';
+type ProvSortKey = 'razonSocial' | 'contacto' | 'telefono' | 'email' | 'activo';
+
+const medEstadoSortOrder: Record<string, number> = {
+  ACTIVO: 0,
+  SUSPENDIDO: 1,
+  INACTIVO: 2,
+};
 
 function getInitials(name: string): string {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
@@ -39,6 +49,14 @@ export default function Gestion() {
   const [provModal, setProvModal] = useState(false);
   const [selectedProv, setSelectedProv] = useState<Proveedor | null>(null);
   const [nuevoProvModal, setNuevoProvModal] = useState(false);
+  const [medSort, setMedSort] = useState<{ key: MedSortKey; direction: SortDirection }>({
+    key: 'nombre',
+    direction: 'asc',
+  });
+  const [provSort, setProvSort] = useState<{ key: ProvSortKey; direction: SortDirection }>({
+    key: 'razonSocial',
+    direction: 'asc',
+  });
 
   const fetchData = useCallback(async () => {
     try {
@@ -68,6 +86,43 @@ export default function Gestion() {
   const handleDeleteProv = async (id: string) => {
     if (!confirm('¿Eliminar este proveedor?')) return;
     try { await eliminarProveedor(id); fetchData(); } catch { /* ignore */ }
+  };
+
+  const sortedMedicamentos = useMemo(() => {
+    return [...(medData?.data ?? [])].sort((a, b) => {
+      let result = 0;
+
+      if (medSort.key === 'nombre') result = compareText(a.nombre, b.nombre);
+      if (medSort.key === 'categoria') result = compareText(a.categoria, b.categoria);
+      if (medSort.key === 'presentacion') result = compareText(a.presentacion, b.presentacion);
+      if (medSort.key === 'ean') result = compareText(a.ean, b.ean);
+      if (medSort.key === 'laboratorio') result = compareText(a.laboratorio, b.laboratorio);
+      if (medSort.key === 'estado') result = (medEstadoSortOrder[a.estado] ?? 99) - (medEstadoSortOrder[b.estado] ?? 99);
+
+      return applySortDirection(result, medSort.direction);
+    });
+  }, [medData?.data, medSort]);
+
+  const sortedProveedores = useMemo(() => {
+    return [...(provData?.data ?? [])].sort((a, b) => {
+      let result = 0;
+
+      if (provSort.key === 'razonSocial') result = compareText(a.razonSocial, b.razonSocial);
+      if (provSort.key === 'contacto') result = compareText(a.contacto, b.contacto);
+      if (provSort.key === 'telefono') result = compareText(a.telefono, b.telefono);
+      if (provSort.key === 'email') result = compareText(a.email, b.email);
+      if (provSort.key === 'activo') result = compareNumber(Number(a.activo), Number(b.activo));
+
+      return applySortDirection(result, provSort.direction);
+    });
+  }, [provData?.data, provSort]);
+
+  const handleMedSort = (key: MedSortKey) => {
+    setMedSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
+
+  const handleProvSort = (key: ProvSortKey) => {
+    setProvSort((current) => ({ key, direction: nextSortDirection(current, key) }));
   };
 
   return (
@@ -151,17 +206,17 @@ export default function Gestion() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Medicamento</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Categoría</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Presentación</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">EAN</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Laboratorio</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Estado</th>
+                    <SortableTh label="Medicamento" sortKey="nombre" activeKey={medSort.key} direction={medSort.direction} onSort={handleMedSort} />
+                    <SortableTh label="Categoría" sortKey="categoria" activeKey={medSort.key} direction={medSort.direction} onSort={handleMedSort} />
+                    <SortableTh label="Presentación" sortKey="presentacion" activeKey={medSort.key} direction={medSort.direction} onSort={handleMedSort} />
+                    <SortableTh label="EAN" sortKey="ean" activeKey={medSort.key} direction={medSort.direction} onSort={handleMedSort} />
+                    <SortableTh label="Laboratorio" sortKey="laboratorio" activeKey={medSort.key} direction={medSort.direction} onSort={handleMedSort} />
+                    <SortableTh label="Estado" sortKey="estado" activeKey={medSort.key} direction={medSort.direction} onSort={handleMedSort} />
                     <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {medData?.data.map((m) => {
+                  {sortedMedicamentos.map((m) => {
                     const IconComp = getMedIcon(m.categoria);
                     return (
                       <tr key={m.id} className="hover:bg-gray-50">
@@ -198,7 +253,7 @@ export default function Gestion() {
                       </tr>
                     );
                   })}
-                  {medData?.data.length === 0 && (
+                  {sortedMedicamentos.length === 0 && (
                     <tr><td colSpan={7} className="px-6 py-8 text-center text-sm text-gray-400">No se encontraron medicamentos</td></tr>
                   )}
                 </tbody>
@@ -247,16 +302,16 @@ export default function Gestion() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50/50">
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Proveedor</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Contacto</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Teléfono</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">E-Mail</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Estado</th>
+                    <SortableTh label="Proveedor" sortKey="razonSocial" activeKey={provSort.key} direction={provSort.direction} onSort={handleProvSort} />
+                    <SortableTh label="Contacto" sortKey="contacto" activeKey={provSort.key} direction={provSort.direction} onSort={handleProvSort} />
+                    <SortableTh label="Teléfono" sortKey="telefono" activeKey={provSort.key} direction={provSort.direction} onSort={handleProvSort} />
+                    <SortableTh label="E-Mail" sortKey="email" activeKey={provSort.key} direction={provSort.direction} onSort={handleProvSort} />
+                    <SortableTh label="Estado" sortKey="activo" activeKey={provSort.key} direction={provSort.direction} onSort={handleProvSort} />
                     <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {provData?.data.map((p) => {
+                  {sortedProveedores.map((p) => {
                     const initials = getInitials(p.razonSocial);
                     return (
                       <tr key={p.id} className="hover:bg-gray-50">
@@ -292,7 +347,7 @@ export default function Gestion() {
                       </tr>
                     );
                   })}
-                  {provData?.data.length === 0 && (
+                  {sortedProveedores.length === 0 && (
                     <tr><td colSpan={6} className="px-6 py-8 text-center text-sm text-gray-400">No se encontraron proveedores</td></tr>
                   )}
                 </tbody>

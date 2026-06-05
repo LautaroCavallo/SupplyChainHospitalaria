@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, Search, Loader2 } from 'lucide-react';
 import { getActividadReciente } from '../api/dashboard';
 import type { ActividadReciente as ActividadItem, PaginatedResponse } from '../types';
 import Pagination from '../components/common/Pagination';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareDate, compareText, nextSortDirection } from '../utils/sort';
 
 const eventoBadgeStyle: Record<string, string> = {
   receta_validada:    'bg-green-100 text-green-700',
@@ -21,6 +23,8 @@ const eventoLabel: Record<string, string> = {
   otro:               'Otro',
 };
 
+type SortKey = 'createdAt' | 'evento' | 'referencia' | 'responsable';
+
 function getAvatarColor(name: string): string {
   const colors = ['bg-gray-600', 'bg-brand', 'bg-teal-600', 'bg-purple-600', 'bg-indigo-600'];
   return colors[name.charCodeAt(0) % colors.length];
@@ -36,6 +40,10 @@ export default function ActividadReciente() {
   const [page, setPage] = useState(1);
   const [busqueda, setBusqueda] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'createdAt',
+    direction: 'desc',
+  });
 
   const fetchData = useCallback(async () => {
     try {
@@ -47,6 +55,23 @@ export default function ActividadReciente() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setPage(1); }, [busqueda]);
+
+  const sortedActividad = useMemo(() => {
+    return [...(data?.data ?? [])].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === 'createdAt') result = compareDate(a.createdAt, b.createdAt);
+      if (sort.key === 'evento') result = compareText(eventoLabel[a.tipoEvento] ?? a.evento, eventoLabel[b.tipoEvento] ?? b.evento);
+      if (sort.key === 'referencia') result = compareText(a.referencia ?? a.producto, b.referencia ?? b.producto);
+      if (sort.key === 'responsable') result = compareText(a.responsable, b.responsable);
+
+      return applySortDirection(result, sort.direction);
+    });
+  }, [data?.data, sort]);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
 
   return (
     <div>
@@ -94,14 +119,14 @@ export default function ActividadReciente() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Fecha y Hora</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Evento</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Referencia / Producto</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Responsable</th>
+                  <SortableTh label="Fecha y Hora" sortKey="createdAt" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Evento" sortKey="evento" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Referencia / Producto" sortKey="referencia" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Responsable" sortKey="responsable" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {data?.data.map((a) => {
+                {sortedActividad.map((a) => {
                   const badgeStyle = eventoBadgeStyle[a.tipoEvento] ?? 'bg-gray-100 text-gray-600';
                   const label = eventoLabel[a.tipoEvento] ?? a.evento;
                   const colorClass = getAvatarColor(a.responsable);
@@ -137,7 +162,7 @@ export default function ActividadReciente() {
                     </tr>
                   );
                 })}
-                {data?.data.length === 0 && (
+                {sortedActividad.length === 0 && (
                   <tr><td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-400">Sin actividad registrada</td></tr>
                 )}
               </tbody>

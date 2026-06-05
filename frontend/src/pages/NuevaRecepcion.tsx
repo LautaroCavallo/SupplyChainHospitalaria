@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Loader2, ChevronLeft, Search } from 'lucide-react';
 import { getProveedores } from '../api/proveedores';
 import { crearRecepcion, confirmarRecepcion, procesarRecepcion } from '../api/recepciones';
 import { getInventario } from '../api/inventario';
 import type { Proveedor, ProductoInventario } from '../types';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 interface DetalleRow {
   key: number;
@@ -17,6 +19,8 @@ interface DetalleRow {
   lote: string;
   fechaVencimiento: string;
 }
+
+type SortKey = 'nombreProducto' | 'cantidad' | 'precio' | 'ean' | 'troquel' | 'lote' | 'fechaVencimiento';
 
 function emptyRow(key: number): DetalleRow {
   return { key, productoId: '', nombreProducto: '', cantidad: 0, precio: 0, ean: '', troquel: '', lote: '', fechaVencimiento: '' };
@@ -35,6 +39,10 @@ export default function NuevaRecepcion() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nextKey = useRef(2);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'nombreProducto',
+    direction: 'asc',
+  });
 
   const [searchResults, setSearchResults] = useState<ProductoInventario[]>([]);
   const [activeSearchRow, setActiveSearchRow] = useState<number | null>(null);
@@ -80,6 +88,25 @@ export default function NuevaRecepcion() {
 
   const totalItems = rows.reduce((sum, r) => sum + (r.cantidad || 0), 0);
   const totalPrecio = rows.reduce((sum, r) => sum + (r.cantidad || 0) * (r.precio || 0), 0);
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === 'nombreProducto') result = compareText(a.nombreProducto, b.nombreProducto);
+      if (sort.key === 'cantidad') result = compareNumber(a.cantidad, b.cantidad);
+      if (sort.key === 'precio') result = compareNumber(a.precio, b.precio);
+      if (sort.key === 'ean') result = compareText(a.ean, b.ean);
+      if (sort.key === 'troquel') result = compareText(a.troquel, b.troquel);
+      if (sort.key === 'lote') result = compareText(a.lote, b.lote);
+      if (sort.key === 'fechaVencimiento') result = compareDate(a.fechaVencimiento, b.fechaVencimiento);
+
+      return applySortDirection(result, sort.direction);
+    });
+  }, [rows, sort]);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
 
   const validate = (): boolean => {
     if (!proveedorId) { setError('Seleccione un proveedor'); return false; }
@@ -192,18 +219,18 @@ export default function NuevaRecepcion() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/50">
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Medicamento</th>
-              <th className="w-20 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Cant.</th>
-              <th className="w-24 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Precio</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">EAN</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Troquel</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Lote</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Vencimiento</th>
+              <SortableTh label="Medicamento" sortKey="nombreProducto" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
+              <SortableTh label="Cant." sortKey="cantidad" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="w-20 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
+              <SortableTh label="Precio" sortKey="precio" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="w-24 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
+              <SortableTh label="EAN" sortKey="ean" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
+              <SortableTh label="Troquel" sortKey="troquel" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
+              <SortableTh label="Lote" sortKey="lote" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
+              <SortableTh label="Vencimiento" sortKey="fechaVencimiento" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
               <th className="w-12 px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {rows.map((row) => (
+            {sortedRows.map((row) => (
               <tr key={row.key}>
                 <td className="relative px-4 py-2">
                   {row.productoId ? (

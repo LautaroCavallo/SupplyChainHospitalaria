@@ -56,15 +56,37 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
 
   async update(id: string, data: UpdateRecepcionData): Promise<Recepcion> {
     const { detalles, ...updateData } = data;
+    const normalizedDetalles = detalles?.map((d) => ({
+      productoId: d.productoId,
+      cantidad: d.cantidad,
+      ean: d.ean,
+      troquel: d.troquel,
+      lote: d.lote,
+      fechaVencimiento: d.fechaVencimiento,
+    }));
 
-    return prisma.recepcion.update({
-      where: { id },
-      data: updateData,
-      include: {
-        proveedor: true,
-        detalles: { include: { producto: true } },
-      },
-    }) as any;
+    return prisma.$transaction(async (tx) => {
+      if (normalizedDetalles) {
+        await tx.recepcionDetalle.deleteMany({ where: { recepcionId: id } });
+      }
+
+      return tx.recepcion.update({
+        where: { id },
+        data: {
+          ...updateData,
+          ...(normalizedDetalles
+            ? {
+                totalItems: normalizedDetalles.length,
+                detalles: { create: normalizedDetalles },
+              }
+            : {}),
+        },
+        include: {
+          proveedor: true,
+          detalles: { include: { producto: true } },
+        },
+      }) as any;
+    });
   }
 
   async count(filtros: FiltrosRecepcion = {}): Promise<number> {

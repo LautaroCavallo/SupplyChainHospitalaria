@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Eye, Filter, Download, ShoppingCart, AlertTriangle, Loader2 } from 'lucide-react';
 import { getCompras, getAlertasCompras } from '../api/compras';
 import type { SolicitudCompra, AlertaStockCritico, PaginatedResponse } from '../types';
@@ -6,6 +6,8 @@ import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
 import NuevaSolicitudModal from '../components/compras/NuevaSolicitudModal';
 import VerSolicitudModal from '../components/compras/VerSolicitudModal';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 const estadoBadge: Record<string, { label: string; variant: 'success' | 'warning' | 'info' | 'default' }> = {
   APROBADA:  { label: 'Aprobada',  variant: 'success' },
@@ -21,6 +23,15 @@ const tabs = [
   { label: 'ENVIADAS', value: 'ENVIADA' },
 ];
 
+type SortKey = 'id' | 'fecha' | 'proveedor' | 'items' | 'estado';
+
+const estadoSortOrder: Record<string, number> = {
+  PENDIENTE: 0,
+  APROBADA: 1,
+  ENVIADA: 2,
+  RECHAZADA: 3,
+};
+
 export default function Compras() {
   const [data, setData] = useState<PaginatedResponse<SolicitudCompra> | null>(null);
   const [alertas, setAlertas] = useState<AlertaStockCritico[]>([]);
@@ -30,6 +41,10 @@ export default function Compras() {
   const [nuevaModal, setNuevaModal] = useState(false);
   const [verModal, setVerModal] = useState(false);
   const [selectedSolicitud, setSelectedSolicitud] = useState<SolicitudCompra | null>(null);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'fecha',
+    direction: 'desc',
+  });
 
   const fetchData = useCallback(async () => {
     try {
@@ -49,6 +64,24 @@ export default function Compras() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setPage(1); }, [estadoFilter]);
+
+  const sortedSolicitudes = useMemo(() => {
+    return [...(data?.data ?? [])].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === 'id') result = compareText(a.id, b.id);
+      if (sort.key === 'fecha') result = compareDate(a.fechaSolicitud ?? a.createdAt, b.fechaSolicitud ?? b.createdAt);
+      if (sort.key === 'proveedor') result = compareText(a.proveedorNombre, b.proveedorNombre);
+      if (sort.key === 'items') result = compareNumber(a.detalles.length, b.detalles.length);
+      if (sort.key === 'estado') result = (estadoSortOrder[a.estado] ?? 99) - (estadoSortOrder[b.estado] ?? 99);
+
+      return applySortDirection(result, sort.direction);
+    });
+  }, [data?.data, sort]);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
 
   return (
     <div>
@@ -144,16 +177,16 @@ export default function Compras() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">ID Solicitud</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Fecha</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Proveedor</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Items</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Estado</th>
+                  <SortableTh label="ID Solicitud" sortKey="id" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Fecha" sortKey="fecha" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Proveedor" sortKey="proveedor" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Items" sortKey="items" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Estado" sortKey="estado" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {data?.data.map((s) => {
+                {sortedSolicitudes.map((s) => {
                   const badge = estadoBadge[s.estado] ?? { label: s.estado, variant: 'default' as const };
                   return (
                     <tr key={s.id} className="cursor-pointer hover:bg-gray-50" onClick={() => { setSelectedSolicitud(s); setVerModal(true); }}>
@@ -179,7 +212,7 @@ export default function Compras() {
                     </tr>
                   );
                 })}
-                {data?.data.length === 0 && (
+                {sortedSolicitudes.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
                       No se encontraron solicitudes

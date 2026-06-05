@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import {
   getProveedores,
@@ -11,6 +11,8 @@ import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
 import SearchInput from '../components/common/SearchInput';
 import Modal from '../components/common/Modal';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 interface ProveedorForm {
   razonSocial: string;
@@ -22,6 +24,7 @@ interface ProveedorForm {
 }
 
 const emptyForm: ProveedorForm = { razonSocial: '', cuit: '', direccion: '', telefono: '', email: '', contacto: '' };
+type SortKey = 'razonSocial' | 'cuit' | 'telefono' | 'email' | 'contacto' | 'activo';
 
 export default function Proveedores() {
   const [data, setData] = useState<PaginatedResponse<Proveedor> | null>(null);
@@ -38,6 +41,10 @@ export default function Proveedores() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<Proveedor | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'razonSocial',
+    direction: 'asc',
+  });
 
   const fetchData = useCallback(async () => {
     try {
@@ -133,6 +140,25 @@ export default function Proveedores() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const sortedProveedores = useMemo(() => {
+    return [...(data?.data ?? [])].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === 'razonSocial') result = compareText(a.razonSocial, b.razonSocial);
+      if (sort.key === 'cuit') result = compareText(a.cuit, b.cuit);
+      if (sort.key === 'telefono') result = compareText(a.telefono, b.telefono);
+      if (sort.key === 'email') result = compareText(a.email, b.email);
+      if (sort.key === 'contacto') result = compareText(a.contacto, b.contacto);
+      if (sort.key === 'activo') result = compareNumber(Number(a.activo), Number(b.activo));
+
+      return applySortDirection(result, sort.direction);
+    });
+  }, [data?.data, sort]);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-start justify-between">
@@ -178,31 +204,19 @@ export default function Proveedores() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Razón Social
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    CUIT
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Teléfono
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Contacto
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Estado
-                  </th>
+                  <SortableTh label="Razón Social" sortKey="razonSocial" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-500" />
+                  <SortableTh label="CUIT" sortKey="cuit" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-500" />
+                  <SortableTh label="Teléfono" sortKey="telefono" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-500" />
+                  <SortableTh label="Email" sortKey="email" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-500" />
+                  <SortableTh label="Contacto" sortKey="contacto" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-500" />
+                  <SortableTh label="Estado" sortKey="activo" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-6 py-3 text-xs font-medium uppercase tracking-wider text-gray-500" />
                   <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                     Acciones
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {data?.data.map((p) => (
+                {sortedProveedores.map((p) => (
                   <tr key={p.id} className="transition-colors hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {p.razonSocial}
@@ -235,7 +249,7 @@ export default function Proveedores() {
                     </td>
                   </tr>
                 ))}
-                {data?.data.length === 0 && (
+                {sortedProveedores.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-400">
                       No se encontraron proveedores

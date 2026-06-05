@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronRight, Loader2 } from 'lucide-react';
 import { getHistorialLote, getProducto, getLotes } from '../api/inventario';
 import type { MovimientoLote, PaginatedResponse, TipoMovimiento } from '../types';
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 const tipoBadge: Record<TipoMovimiento, { label: string; variant: 'success' | 'danger' | 'warning' | 'info' | 'default' }> = {
   INGRESO:         { label: 'Entrada',  variant: 'success' },
@@ -20,6 +22,16 @@ const tabs = [
   { label: 'SALIDAS', value: 'EGRESO' },
   { label: 'AJUSTES', value: 'AJUSTE_POSITIVO' },
 ];
+
+type SortKey = 'createdAt' | 'tipo' | 'cantidad' | 'origenDestino' | 'responsable';
+
+const tipoSortOrder: Record<TipoMovimiento, number> = {
+  INGRESO: 0,
+  EGRESO: 1,
+  AJUSTE_POSITIVO: 2,
+  AJUSTE_NEGATIVO: 3,
+  CONSUMO_RECETA: 4,
+};
 
 function getAvatarColor(name?: string): string {
   if (!name) return 'bg-gray-500';
@@ -41,6 +53,10 @@ export default function HistorialLote() {
   const [loading, setLoading] = useState(true);
   const [nombreMedicamento, setNombreMedicamento] = useState('');
   const [numeroLote, setNumeroLote] = useState('');
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'createdAt',
+    direction: 'desc',
+  });
 
   const fetchData = useCallback(async () => {
     if (!medicamentoId || !loteId) return;
@@ -59,6 +75,24 @@ export default function HistorialLote() {
   }, [medicamentoId, loteId, page, tipoFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const sortedMovimientos = useMemo(() => {
+    return [...(data?.data ?? [])].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === 'createdAt') result = compareDate(a.createdAt, b.createdAt);
+      if (sort.key === 'tipo') result = tipoSortOrder[a.tipo] - tipoSortOrder[b.tipo];
+      if (sort.key === 'cantidad') result = compareNumber(a.cantidad, b.cantidad);
+      if (sort.key === 'origenDestino') result = compareText(a.origen ?? a.destino ?? a.motivo, b.origen ?? b.destino ?? b.motivo);
+      if (sort.key === 'responsable') result = compareText(a.responsable, b.responsable);
+
+      return applySortDirection(result, sort.direction);
+    });
+  }, [data?.data, sort]);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
 
   return (
     <div>
@@ -115,15 +149,15 @@ export default function HistorialLote() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Fecha y Hora</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Tipo</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Cantidad</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Origen / Destino</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Responsable</th>
+                  <SortableTh label="Fecha y Hora" sortKey="createdAt" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Tipo" sortKey="tipo" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Cantidad" sortKey="cantidad" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Origen / Destino" sortKey="origenDestino" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Responsable" sortKey="responsable" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {data?.data.map((m) => {
+                {sortedMovimientos.map((m) => {
                   const badge = tipoBadge[m.tipo] ?? { label: m.tipo, variant: 'default' as const };
                   const colorClass = getAvatarColor(m.responsable);
                   const initials = getInitials(m.responsable);
@@ -151,7 +185,7 @@ export default function HistorialLote() {
                     </tr>
                   );
                 })}
-                {data?.data.length === 0 && (
+                {sortedMovimientos.length === 0 && (
                   <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-400">Sin movimientos registrados</td></tr>
                 )}
               </tbody>

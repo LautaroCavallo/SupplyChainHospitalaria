@@ -11,7 +11,7 @@ export class PrismaInventarioRepository implements IInventarioRepository {
   }
 
   private buildWhere(filtros: FiltrosInventario & { busqueda?: string } = {}): any {
-    const { nombre, busqueda, categoria, activo = true, proveedorId } = filtros;
+    const { nombre, busqueda, categoria, activo = true, proveedorId, genericoId } = filtros;
     const where: any = { activo };
 
     const searchTerm = busqueda || nombre;
@@ -19,11 +19,14 @@ export class PrismaInventarioRepository implements IInventarioRepository {
       where.OR = [
         { nombre: { contains: searchTerm } },
         { principioActivo: { contains: searchTerm } },
+        { generico: { is: { nombre: { contains: searchTerm } } } },
+        { generico: { is: { principioActivo: { contains: searchTerm } } } },
       ];
     }
 
     if (categoria) where.categoria = categoria;
     if (proveedorId) where.proveedorId = proveedorId;
+    if (genericoId) where.genericoId = genericoId;
 
     return where;
   }
@@ -36,7 +39,7 @@ export class PrismaInventarioRepository implements IInventarioRepository {
       where,
       skip: (page - 1) * limit,
       take: limit,
-      include: { proveedor: true },
+      include: { proveedor: true, generico: true },
       orderBy: { nombre: 'asc' },
     });
 
@@ -54,6 +57,7 @@ export class PrismaInventarioRepository implements IInventarioRepository {
       where: { id },
       include: {
         proveedor: true,
+        generico: true,
         lotes: { where: { estado: 'VIGENTE' }, orderBy: { fechaVencimiento: 'asc' } },
       },
     });
@@ -63,7 +67,7 @@ export class PrismaInventarioRepository implements IInventarioRepository {
   async findByEan(ean: string): Promise<ProductoInventario | null> {
     const data = await prisma.productoInventario.findUnique({
       where: { ean },
-      include: { proveedor: true },
+      include: { proveedor: true, generico: true },
     });
     return data ? this.toEntity(data) : null;
   }
@@ -71,15 +75,35 @@ export class PrismaInventarioRepository implements IInventarioRepository {
   async findByTroquel(troquel: string): Promise<ProductoInventario | null> {
     const data = await prisma.productoInventario.findUnique({
       where: { troquel },
-      include: { proveedor: true },
+      include: { proveedor: true, generico: true },
     });
     return data ? this.toEntity(data) : null;
+  }
+
+  async findByGenerico(nombreGenerico: string): Promise<ProductoInventario[]> {
+    const search = nombreGenerico.trim();
+    const data = await prisma.productoInventario.findMany({
+      where: {
+        activo: true,
+        categoria: 'MEDICAMENTO',
+        OR: [
+          { nombre: { contains: search } },
+          { principioActivo: { contains: search } },
+          { generico: { is: { nombre: { contains: search } } } },
+          { generico: { is: { principioActivo: { contains: search } } } },
+          { generico: { is: { nombreNormalizado: { contains: search.toLowerCase() } } } },
+        ],
+      },
+      include: { proveedor: true, generico: true },
+      orderBy: [{ stockActual: 'desc' }, { nombre: 'asc' }],
+    });
+    return data.map(this.toEntity);
   }
 
   async create(data: CreateProductoData): Promise<ProductoInventario> {
     const created = await prisma.productoInventario.create({
       data,
-      include: { proveedor: true },
+      include: { proveedor: true, generico: true },
     });
     return this.toEntity(created);
   }
@@ -88,7 +112,7 @@ export class PrismaInventarioRepository implements IInventarioRepository {
     const updated = await prisma.productoInventario.update({
       where: { id },
       data,
-      include: { proveedor: true },
+      include: { proveedor: true, generico: true },
     });
     return this.toEntity(updated);
   }
@@ -97,7 +121,7 @@ export class PrismaInventarioRepository implements IInventarioRepository {
     const updated = await prisma.productoInventario.update({
       where: { id },
       data: { stockActual: cantidad },
-      include: { proveedor: true },
+      include: { proveedor: true, generico: true },
     });
     return this.toEntity(updated);
   }
@@ -110,7 +134,7 @@ export class PrismaInventarioRepository implements IInventarioRepository {
   async findStockCritico(): Promise<ProductoInventario[]> {
     const data = await prisma.productoInventario.findMany({
       where: { activo: true },
-      include: { proveedor: true },
+      include: { proveedor: true, generico: true },
     });
     return data.map(this.toEntity).filter((p) => p.isStockCritico());
   }
@@ -118,7 +142,7 @@ export class PrismaInventarioRepository implements IInventarioRepository {
   async findStockBajo(): Promise<ProductoInventario[]> {
     const data = await prisma.productoInventario.findMany({
       where: { activo: true },
-      include: { proveedor: true },
+      include: { proveedor: true, generico: true },
     });
     return data.map(this.toEntity).filter((p) => p.isStockBajo());
   }
@@ -126,7 +150,7 @@ export class PrismaInventarioRepository implements IInventarioRepository {
   async findSinStock(): Promise<ProductoInventario[]> {
     const data = await prisma.productoInventario.findMany({
       where: { activo: true, stockActual: 0 },
-      include: { proveedor: true },
+      include: { proveedor: true, generico: true },
     });
     return data.map(this.toEntity);
   }

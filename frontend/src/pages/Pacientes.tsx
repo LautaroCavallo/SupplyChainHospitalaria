@@ -1,8 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FileText, QrCode, CheckCircle2, Loader2 } from 'lucide-react';
 import { validarReceta, registrarConsumo } from '../api/pacientes';
 import type { RecetaDetalle } from '../types';
 import QRScannerModal from '../components/pacientes/QRScannerModal';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareNumber, compareText, nextSortDirection } from '../utils/sort';
+
+type SortKey = 'medicamento' | 'descripcion' | 'cantAutorizada' | 'cantConsumida';
 
 export default function Pacientes() {
   const [recetaId, setRecetaId] = useState('');
@@ -13,6 +17,10 @@ export default function Pacientes() {
   const [savingConsumo, setSavingConsumo] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'medicamento',
+    direction: 'asc',
+  });
 
   const handleValidar = async (id?: string) => {
     const idToUse = (id ?? recetaId).trim();
@@ -24,7 +32,7 @@ export default function Pacientes() {
       const result = await validarReceta(idToUse);
       setReceta(result);
       setRecetaId(idToUse);
-      setConsumos({});
+      setConsumos(Object.fromEntries(result.items.map((item, index) => [index, item.cantAutorizada])));
     } catch {
       setError('Receta no encontrada o inválida');
       setReceta(null);
@@ -36,8 +44,8 @@ export default function Pacientes() {
   const handleQRScan = (data: string) => {
     // The QR may contain a full ID or a URL with the ID embedded
     // Try to extract a pattern like REC-XXXX-XXXX or use the raw value
-    const match = data.match(/REC-\w+-\w+/i) ?? data.match(/receta[=/](\S+)/i);
-    const extracted = match ? match[0] : data.trim();
+    const match = data.match(/recetas?[=/](\d+)/i) ?? data.match(/\b\d+\b/);
+    const extracted = match ? match[1] ?? match[0] : data.trim();
     setRecetaId(extracted);
     handleValidar(extracted);
   };
@@ -46,10 +54,12 @@ export default function Pacientes() {
     if (!receta) return;
     try {
       setSavingConsumo(true);
-      const items = receta.items.map((item, i) => ({
-        medicamento: item.medicamento,
-        cantConsumo: consumos[i] ?? item.cantConsumida,
-      }));
+      const items = receta.items
+        .map((item, i) => ({
+          medicamento: item.medicamento,
+          cantConsumo: consumos[i] ?? item.cantConsumida,
+        }))
+        .filter((item) => item.cantConsumo > 0);
       await registrarConsumo(receta.id, items);
       setSuccessMsg('Consumo registrado exitosamente');
     } catch {
@@ -57,6 +67,30 @@ export default function Pacientes() {
     } finally {
       setSavingConsumo(false);
     }
+  };
+
+  const sortedItems = useMemo(() => {
+    return [...(receta?.items ?? [])]
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => {
+        let result = 0;
+
+        if (sort.key === 'medicamento') result = compareText(a.item.medicamento, b.item.medicamento);
+        if (sort.key === 'descripcion') result = compareText(a.item.descripcion, b.item.descripcion);
+        if (sort.key === 'cantAutorizada') result = compareNumber(a.item.cantAutorizada, b.item.cantAutorizada);
+        if (sort.key === 'cantConsumida') {
+          result = compareNumber(
+            consumos[a.index] ?? a.item.cantConsumida,
+            consumos[b.index] ?? b.item.cantConsumida
+          );
+        }
+
+        return applySortDirection(result, sort.direction);
+      });
+  }, [consumos, receta?.items, sort]);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
   };
 
   return (
@@ -84,7 +118,7 @@ export default function Pacientes() {
               type="text"
               value={recetaId}
               onChange={(e) => setRecetaId(e.target.value)}
-              placeholder="REC-4829-2024"
+              placeholder="8502"
               onKeyDown={(e) => e.key === 'Enter' && handleValidar()}
               className="h-11 w-full rounded-xl border border-gray-200 px-4 text-sm placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
             />
@@ -168,15 +202,15 @@ export default function Pacientes() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="pb-2 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Medicamento</th>
-                  <th className="pb-2 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Descripción</th>
-                  <th className="pb-2 text-center text-xs font-semibold uppercase tracking-widest text-gray-400">Cant. Autorizada</th>
-                  <th className="pb-2 text-center text-xs font-semibold uppercase tracking-widest text-gray-400">Cant. Consumida</th>
+                  <SortableTh label="Medicamento" sortKey="medicamento" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="pb-2 text-xs font-semibold uppercase tracking-widest text-gray-400" />
+                  <SortableTh label="Descripción" sortKey="descripcion" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="pb-2 text-xs font-semibold uppercase tracking-widest text-gray-400" />
+                  <SortableTh label="Cant. Autorizada" sortKey="cantAutorizada" activeKey={sort.key} direction={sort.direction} onSort={handleSort} align="center" className="pb-2 text-xs font-semibold uppercase tracking-widest text-gray-400" />
+                  <SortableTh label="Cant. Consumida" sortKey="cantConsumida" activeKey={sort.key} direction={sort.direction} onSort={handleSort} align="center" className="pb-2 text-xs font-semibold uppercase tracking-widest text-gray-400" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {receta.items.map((item, i) => (
-                  <tr key={i}>
+                {sortedItems.map(({ item, index }) => (
+                  <tr key={index}>
                     <td className="py-3 text-sm font-semibold text-gray-900">{item.medicamento}</td>
                     <td className="py-3 pr-4 text-xs text-gray-500">{item.descripcion}</td>
                     <td className="py-3 text-center text-sm font-bold text-gray-900">{item.cantAutorizada}</td>
@@ -185,8 +219,8 @@ export default function Pacientes() {
                         type="number"
                         min={0}
                         max={item.cantAutorizada}
-                        value={consumos[i] ?? item.cantConsumida}
-                        onChange={(e) => setConsumos((prev) => ({ ...prev, [i]: Number(e.target.value) }))}
+                        value={consumos[index] ?? item.cantConsumida}
+                        onChange={(e) => setConsumos((prev) => ({ ...prev, [index]: Number(e.target.value) }))}
                         className="h-9 w-16 rounded-xl border border-gray-200 text-center text-sm font-semibold focus:border-brand focus:outline-none"
                       />
                     </td>

@@ -1,6 +1,6 @@
 import { IComprasService, SolicitudCompraExterna, ResultadoEnvio } from '../../../domain/services/IComprasService';
 
-export class MockComprasService implements IComprasService {
+export class ComprasFixtureService implements IComprasService {
   async enviarSolicitud(solicitud: SolicitudCompraExterna): Promise<ResultadoEnvio> {
     return {
       exitoso: true,

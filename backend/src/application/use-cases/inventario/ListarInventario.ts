@@ -31,6 +31,16 @@ export class ListarInventario {
       stockCritico: producto.stockCritico,
       unidad: producto.unidad,
       proveedor: producto.proveedor ?? null,
+      genericoId: producto.genericoId ?? null,
+      generico: producto.generico
+        ? {
+            id: producto.generico.id,
+            nombre: producto.generico.nombre,
+            principioActivo: producto.generico.principioActivo,
+            dosis: producto.generico.dosis ?? null,
+            formaFarmaceutica: producto.generico.formaFarmaceutica ?? null,
+          }
+        : null,
       estado: calcularEstado(producto.stockActual, producto.stockMinimo, producto.stockCritico),
       activo: producto.activo,
     }));

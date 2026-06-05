@@ -4,8 +4,10 @@ import { IMovimientoStockRepository } from '../../../domain/repositories/IMovimi
 import { ValidationError } from '../../errors/AppError';
 
 interface ItemReceta {
-  productoId: string;
-  cantidad: number;
+  productoId?: string;
+  medicamento?: string;
+  cantidad?: number;
+  cantConsumo?: number;
 }
 
 export class ConsumirReceta {
@@ -22,31 +24,46 @@ export class ConsumirReceta {
     }
 
     for (const item of items) {
-      const producto = await this.inventarioRepository.findById(item.productoId);
-      if (!producto) {
-        throw new ValidationError(`Producto con id ${item.productoId} no encontrado`);
+      const cantidad = item.cantidad ?? item.cantConsumo ?? 0;
+      if (cantidad <= 0) {
+        continue;
       }
 
-      if (producto.stockActual < item.cantidad) {
+      const producto = item.productoId
+        ? await this.inventarioRepository.findById(item.productoId)
+        : (await this.inventarioRepository.findByGenerico(item.medicamento ?? ''))
+            .find((p) => p.stockActual >= cantidad);
+
+      if (!producto) {
+        throw new ValidationError(`No hay producto comercial disponible para ${item.medicamento ?? item.productoId}`);
+      }
+
+      if (producto.stockActual < cantidad) {
         throw new ValidationError(
-          `Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stockActual}, solicitado: ${item.cantidad}`,
+          `Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stockActual}, solicitado: ${cantidad}`,
         );
       }
 
       await this.inventarioRepository.updateStock(
-        item.productoId,
-        producto.stockActual - item.cantidad,
+        producto.id,
+        producto.stockActual - cantidad,
       );
 
       await this.movimientoRepository.create({
-        productoId: item.productoId,
+        productoId: producto.id,
         tipo: 'CONSUMO_RECETA',
-        cantidad: item.cantidad,
-        motivo: `Consumo por receta ${recetaId}`,
+        cantidad,
+        motivo: `Consumo por receta ${recetaId}${item.medicamento ? ` (${item.medicamento})` : ''}`,
         referencia: recetaId,
       });
     }
 
-    await this.recetaService.consumirReceta(recetaId, items);
+    await this.recetaService.consumirReceta(
+      recetaId,
+      items.map((item) => ({
+        productoId: item.productoId ?? item.medicamento ?? '',
+        cantidad: item.cantidad ?? item.cantConsumo ?? 0,
+      })),
+    );
   }
 }

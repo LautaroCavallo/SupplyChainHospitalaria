@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Printer, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Recepcion } from '../../types';
 import Badge from '../common/Badge';
+import SortableTh, { type SortDirection } from '../common/SortableTh';
+import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../../utils/sort';
 
 interface Props {
   isOpen: boolean;
@@ -10,6 +12,7 @@ interface Props {
 }
 
 const PAGE_SIZE = 3;
+type SortKey = 'producto' | 'cantidad' | 'lote' | 'precio' | 'fechaVencimiento';
 
 function getInitials(name: string): string {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
@@ -21,6 +24,29 @@ function formatDateLong(d: string): string {
 
 export default function RecepcionDetalleModal({ isOpen, onClose, recepcion }: Props) {
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'producto',
+    direction: 'asc',
+  });
+
+  const sortedDetalles = useMemo(() => {
+    return [...(recepcion?.detalles ?? [])].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === 'producto') result = compareText(a.producto?.nombre, b.producto?.nombre);
+      if (sort.key === 'cantidad') result = compareNumber(a.cantidad, b.cantidad);
+      if (sort.key === 'lote') result = compareText(a.lote, b.lote);
+      if (sort.key === 'precio') result = compareNumber(a.precio, b.precio);
+      if (sort.key === 'fechaVencimiento') result = compareDate(a.fechaVencimiento, b.fechaVencimiento);
+
+      return applySortDirection(result, sort.direction);
+    });
+  }, [recepcion?.detalles, sort]);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+    setPage(1);
+  };
 
   if (!isOpen || !recepcion) return null;
 
@@ -32,8 +58,8 @@ export default function RecepcionDetalleModal({ isOpen, onClose, recepcion }: Pr
   const badgeLabel = recepcion.estado === 'PROCESADA' ? 'Procesada' : recepcion.estado === 'CONFIRMADA' ? 'Confirmada' : 'Borrador';
 
   const totalItems = recepcion.totalItems ?? recepcion.detalles.length;
-  const totalPages = Math.ceil(recepcion.detalles.length / PAGE_SIZE);
-  const pageDetalles = recepcion.detalles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.ceil(sortedDetalles.length / PAGE_SIZE);
+  const pageDetalles = sortedDetalles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE + 1;
   const endIdx = Math.min(page * PAGE_SIZE, recepcion.detalles.length);
 
@@ -92,11 +118,11 @@ export default function RecepcionDetalleModal({ isOpen, onClose, recepcion }: Pr
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/50">
-                <th className="py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400">Producto</th>
-                <th className="py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400">Cant.</th>
-                <th className="py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400">Lote</th>
-                <th className="py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400">Precio</th>
-                <th className="py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400">Vencimiento</th>
+                <SortableTh label="Producto" sortKey="producto" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400" />
+                <SortableTh label="Cant." sortKey="cantidad" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400" />
+                <SortableTh label="Lote" sortKey="lote" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400" />
+                <SortableTh label="Precio" sortKey="precio" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400" />
+                <SortableTh label="Vencimiento" sortKey="fechaVencimiento" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">

@@ -39,6 +39,14 @@ export interface ProductoInventario {
   stockCritico: number;
   unidad: string;
   proveedorId?: string;
+  genericoId?: string;
+  generico?: {
+    id: string;
+    nombre: string;
+    principioActivo: string;
+    dosis?: string | null;
+    formaFarmaceutica?: string | null;
+  } | null;
   laboratorio?: string;
   precio?: number;
   activo: boolean;

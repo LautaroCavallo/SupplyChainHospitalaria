@@ -10,6 +10,7 @@ export function recepcionRoutes(container: Container): Router {
     container.listarRecepciones,
     container.obtenerRecepcion,
     container.crearRecepcion,
+    container.actualizarRecepcion,
     container.confirmarRecepcion,
     container.procesarRecepcion,
   );
@@ -42,6 +43,23 @@ export function recepcionRoutes(container: Container): Router {
     param('id').isUUID(),
     validateRequest,
     controller.getById,
+  );
+
+  router.put('/:id',
+    param('id').isUUID(),
+    body('proveedorId').isUUID().withMessage('Proveedor ID inválido'),
+    body('remito').optional().isString().trim(),
+    body('fechaRecepcion').isISO8601().withMessage('Fecha de recepción inválida'),
+    body('observaciones').optional().isString().trim(),
+    body('detalles').isArray({ min: 1 }).withMessage('Debe incluir al menos un detalle'),
+    body('detalles.*.productoId').isUUID().withMessage('Producto ID inválido en detalle'),
+    body('detalles.*.cantidad').isInt({ min: 1 }).withMessage('Cantidad debe ser mayor a 0'),
+    body('detalles.*.lote').isString().trim().notEmpty().withMessage('Número de lote es requerido'),
+    body('detalles.*.fechaVencimiento').isISO8601().withMessage('Fecha de vencimiento inválida en detalle'),
+    body('detalles.*.ean').optional().isString().trim(),
+    body('detalles.*.troquel').optional().isString().trim(),
+    validateRequest,
+    controller.update,
   );
 
   router.put('/:id/confirmar',

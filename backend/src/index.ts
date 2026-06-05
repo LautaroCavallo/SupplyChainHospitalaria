@@ -12,7 +12,7 @@ import logger from './config/logger';
 import { createContainer } from './infrastructure/container';
 import { createRoutes } from './interfaces/http/routes';
 import { errorHandler } from './interfaces/http/middleware/errorHandler';
-import { authMock } from './interfaces/http/middleware/authMock';
+import { createAuthMiddleware } from './interfaces/http/middleware/auth';
 import { sanitize } from './interfaces/http/middleware/sanitize';
 import { swaggerSpec } from './interfaces/swagger/config';
 
@@ -25,7 +25,6 @@ app.use(morgan('combined', {
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(sanitize);
-app.use(authMock);
 
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: 'Farmacia API Docs',
@@ -33,6 +32,13 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 }));
 
 const container = createContainer();
+app.use((req, _res, next) => {
+  container.setCurrentAuthToken(req.headers.authorization?.startsWith('Bearer ')
+    ? req.headers.authorization.slice(7)
+    : undefined);
+  next();
+});
+app.use(createAuthMiddleware(container.coreAuthService));
 app.use('/api/v1', createRoutes(container));
 
 app.get('/health', (_req, res) => {

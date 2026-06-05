@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Loader2, Eye, Edit } from 'lucide-react';
 import { getRecepciones, getRecepcion } from '../api/recepciones';
@@ -6,6 +6,8 @@ import type { Recepcion, PaginatedResponse, EstadoRecepcion } from '../types';
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
 import RecepcionDetalleModal from '../components/recepciones/RecepcionDetalleModal';
+import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 const estadoBadge: Record<EstadoRecepcion, { label: string; variant: 'success' | 'warning' | 'info' }> = {
   BORRADOR:   { label: 'Borrador',   variant: 'warning' },
@@ -19,6 +21,14 @@ const tabs: { label: string; value: string }[] = [
   { label: 'CONFIRMADA', value: 'CONFIRMADA' },
   { label: 'PROCESADA',  value: 'PROCESADA' },
 ];
+
+type SortKey = 'id' | 'proveedor' | 'totalItems' | 'fechaRecepcion' | 'estado';
+
+const estadoSortOrder: Record<EstadoRecepcion, number> = {
+  BORRADOR: 0,
+  CONFIRMADA: 1,
+  PROCESADA: 2,
+};
 
 function formatDate(d: string): string {
   return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -43,6 +53,10 @@ export default function Recepciones() {
   const [detailModal, setDetailModal] = useState(false);
   const [selectedRecepcion, setSelectedRecepcion] = useState<Recepcion | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
+    key: 'fechaRecepcion',
+    direction: 'desc',
+  });
 
   const fetchData = useCallback(async () => {
     try {
@@ -80,6 +94,23 @@ export default function Recepciones() {
 
   const startIndex = (page - 1) * 10 + 1;
   const endIndex = Math.min(page * 10, data?.total ?? 0);
+  const sortedRecepciones = useMemo(() => {
+    return [...(data?.data ?? [])].sort((a, b) => {
+      let result = 0;
+
+      if (sort.key === 'id') result = compareText(a.id, b.id);
+      if (sort.key === 'proveedor') result = compareText(a.proveedor?.razonSocial, b.proveedor?.razonSocial);
+      if (sort.key === 'totalItems') result = compareNumber(a.totalItems, b.totalItems);
+      if (sort.key === 'fechaRecepcion') result = compareDate(a.fechaRecepcion, b.fechaRecepcion);
+      if (sort.key === 'estado') result = estadoSortOrder[a.estado] - estadoSortOrder[b.estado];
+
+      return applySortDirection(result, sort.direction);
+    });
+  }, [data?.data, sort]);
+
+  const handleSort = (key: SortKey) => {
+    setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
 
   return (
     <div>
@@ -133,16 +164,16 @@ export default function Recepciones() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">ID Recepción</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Proveedor</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Cantidad Items</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Fecha</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-widest text-gray-400">Estado</th>
+                  <SortableTh label="ID Recepción" sortKey="id" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Proveedor" sortKey="proveedor" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Cantidad Items" sortKey="totalItems" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Fecha" sortKey="fechaRecepcion" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+                  <SortableTh label="Estado" sortKey="estado" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
                   <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-widest text-gray-400">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {data?.data.map((r) => {
+                {sortedRecepciones.map((r) => {
                   const badge = estadoBadge[r.estado];
                   const nombreProveedor = r.proveedor?.razonSocial ?? '—';
                   const initials = nombreProveedor !== '—' ? getInitials(nombreProveedor) : '??';
@@ -190,7 +221,7 @@ export default function Recepciones() {
                     </tr>
                   );
                 })}
-                {data?.data.length === 0 && (
+                {sortedRecepciones.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
                       No se encontraron recepciones
