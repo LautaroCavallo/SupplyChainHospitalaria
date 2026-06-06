@@ -10,9 +10,11 @@ export function inventarioRoutes(container: Container): Router {
     container.listarInventario,
     container.obtenerProductoInventario,
     container.obtenerProductoPorEan,
+    container.obtenerInventarioSummary,
     container.ajustarStock,
     container.obtenerMovimientos,
     container.obtenerLotes,
+    container.obtenerHistorialLote,
   );
 
   router.get('/',
@@ -29,6 +31,22 @@ export function inventarioRoutes(container: Container): Router {
     param('ean').matches(/^\d{8}$|^\d{12,13}$/).withMessage('EAN inválido'),
     validateRequest,
     controller.getByEan,
+  );
+
+  router.get('/summary',
+    controller.getSummary,
+  );
+
+  router.get('/:id/lotes/:loteId/historial',
+    param('id').isUUID(),
+    param('loteId').isUUID(),
+    query('page').optional().isInt({ min: 1 }).toInt(),
+    query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
+    query('tipo').optional({ values: 'falsy' }).isIn(['INGRESO', 'EGRESO', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'CONSUMO_RECETA', 'SALIDAS']),
+    query('fechaDesde').optional({ values: 'falsy' }).isISO8601().withMessage('Fecha desde inválida'),
+    query('fechaHasta').optional({ values: 'falsy' }).isISO8601().withMessage('Fecha hasta inválida'),
+    validateRequest,
+    controller.getHistorialLote,
   );
 
   router.get('/:id',

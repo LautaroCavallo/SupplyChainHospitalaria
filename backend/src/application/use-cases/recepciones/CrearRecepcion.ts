@@ -9,7 +9,7 @@ export class CrearRecepcion {
     private readonly proveedorRepository: IProveedorRepository,
   ) {}
 
-  async execute(dto: CrearRecepcionDTO): Promise<RecepcionResponseDTO> {
+  async execute(dto: CrearRecepcionDTO, usuarioId?: string): Promise<RecepcionResponseDTO> {
     const proveedor = await this.proveedorRepository.findById(dto.proveedorId);
     if (!proveedor) {
       throw new NotFoundError(`Proveedor con id ${dto.proveedorId} no encontrado`);
@@ -20,6 +20,7 @@ export class CrearRecepcion {
       remito: dto.remito,
       fechaRecepcion: dto.fechaRecepcion ? new Date(dto.fechaRecepcion) : undefined,
       observaciones: dto.observaciones,
+      usuarioId,
       detalles: dto.detalles.map(d => ({
         productoId: d.productoId,
         cantidad: d.cantidad,

@@ -221,6 +221,27 @@ const options: swaggerJsdoc.Options = {
             inactivos: { type: 'integer' },
           },
         },
+        InventarioSummary: {
+          type: 'object',
+          properties: {
+            totalProductos: { type: 'integer' },
+            alertaBajoStock: { type: 'integer' },
+            sinStock: { type: 'integer' },
+          },
+        },
+        MovimientoLote: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            loteId: { type: 'string', format: 'uuid', nullable: true },
+            productoId: { type: 'string', format: 'uuid' },
+            tipo: { type: 'string', enum: ['INGRESO', 'EGRESO', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'CONSUMO_RECETA'] },
+            cantidad: { type: 'integer' },
+            motivo: { type: 'string', nullable: true },
+            responsable: { type: 'string', nullable: true },
+            createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
         RecetaItem: {
           type: 'object',
           properties: {
@@ -276,6 +297,53 @@ const options: swaggerJsdoc.Options = {
       },
     },
     paths: {
+      '/dashboard': {
+        get: {
+          tags: ['Dashboard'],
+          summary: 'Resumen operativo del módulo de farmacia',
+          responses: {
+            '200': {
+              description: 'Resumen de actividad, recetas y stock crítico',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'object',
+                        properties: {
+                          recetasValidadas: { type: 'integer' },
+                          medicamentosCriticos: { type: 'integer' },
+                          actividadReciente: { type: 'integer' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/dashboard/actividad-reciente': {
+        get: {
+          tags: ['Dashboard'],
+          summary: 'Actividad reciente basada en movimientos de stock',
+          parameters: [
+            { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
+            { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
+            { name: 'busqueda', in: 'query', required: false, schema: { type: 'string' } },
+            { name: 'usuario', in: 'query', required: false, schema: { type: 'string' } },
+            { name: 'evento', in: 'query', required: false, schema: { type: 'string', enum: ['receta_validada', 'stock_ajustado', 'nueva_recepcion', 'validacion_rechazada', 'otro'] } },
+            { name: 'desde', in: 'query', required: false, schema: { type: 'string', format: 'date' } },
+            { name: 'hasta', in: 'query', required: false, schema: { type: 'string', format: 'date' } },
+          ],
+          responses: {
+            '200': { description: 'Actividad reciente paginada' },
+          },
+        },
+      },
       '/medicamentos': {
         get: {
           tags: ['Inventario'],
@@ -358,6 +426,64 @@ const options: swaggerJsdoc.Options = {
           responses: {
             '204': { description: 'Medicamento desactivado' },
             '404': { description: 'Medicamento no encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/inventario/summary': {
+        get: {
+          tags: ['Inventario'],
+          summary: 'Resumen de inventario',
+          responses: {
+            '200': {
+              description: 'Resumen de productos y alertas de stock',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: { $ref: '#/components/schemas/InventarioSummary' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/inventario/{id}/lotes/{loteId}/historial': {
+        get: {
+          tags: ['Inventario'],
+          summary: 'Historial de movimientos de un lote',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+            { name: 'loteId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+            { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
+            { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
+            { name: 'tipo', in: 'query', required: false, schema: { type: 'string', enum: ['INGRESO', 'EGRESO', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'CONSUMO_RECETA', 'SALIDAS'] } },
+            { name: 'fechaDesde', in: 'query', required: false, schema: { type: 'string', format: 'date' } },
+            { name: 'fechaHasta', in: 'query', required: false, schema: { type: 'string', format: 'date' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Historial paginado del lote',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: { type: 'array', items: { $ref: '#/components/schemas/MovimientoLote' } },
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      totalPages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+            },
+            '400': { description: 'Solicitud inválida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
           },
         },
       },

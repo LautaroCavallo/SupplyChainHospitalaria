@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Search, Loader2 } from 'lucide-react';
+import { Calendar, ChevronRight, Search, Loader2 } from 'lucide-react';
 import { getActividadReciente } from '../api/dashboard';
 import type { ActividadReciente as ActividadItem, PaginatedResponse } from '../types';
 import Pagination from '../components/common/Pagination';
@@ -34,11 +34,19 @@ function getInitials(name: string): string {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 }
 
+function getUniqueResponsables(items: ActividadItem[]): string[] {
+  return Array.from(new Set(items.map((item) => item.responsable).filter(Boolean))).sort();
+}
+
 export default function ActividadReciente() {
   const navigate = useNavigate();
   const [data, setData] = useState<PaginatedResponse<ActividadItem> | null>(null);
   const [page, setPage] = useState(1);
   const [busqueda, setBusqueda] = useState('');
+  const [usuario, setUsuario] = useState('');
+  const [evento, setEvento] = useState('');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
     key: 'createdAt',
@@ -48,13 +56,22 @@ export default function ActividadReciente() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await getActividadReciente({ page, limit: 10, busqueda: busqueda || undefined });
+      const res = await getActividadReciente({
+        page,
+        limit: 10,
+        busqueda: busqueda || undefined,
+        usuario: usuario || undefined,
+        evento: evento || undefined,
+        desde: desde || undefined,
+        hasta: hasta || undefined,
+      });
       setData(res);
     } catch { /* graceful */ } finally { setLoading(false); }
-  }, [page, busqueda]);
+  }, [page, busqueda, usuario, evento, desde, hasta]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setPage(1); }, [busqueda]);
+  useEffect(() => { setPage(1); }, [busqueda, usuario, evento, desde, hasta]);
+  const responsables = useMemo(() => getUniqueResponsables(data?.data ?? []), [data?.data]);
 
   const sortedActividad = useMemo(() => {
     return [...(data?.data ?? [])].sort((a, b) => {
@@ -94,17 +111,44 @@ export default function ActividadReciente() {
           <input type="text" placeholder="Buscar por referencia o producto..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)}
             className="h-10 w-full rounded-xl border border-gray-200 bg-white pl-10 pr-4 text-sm placeholder:text-gray-400 focus:border-brand focus:outline-none" />
         </div>
-        <select className="h-10 rounded-xl border border-gray-200 bg-white px-3 pr-8 text-sm text-gray-600 focus:border-brand focus:outline-none">
+        <select
+          value={usuario}
+          onChange={(e) => setUsuario(e.target.value)}
+          className="h-10 rounded-xl border border-gray-200 bg-white px-3 pr-8 text-sm text-gray-600 focus:border-brand focus:outline-none"
+        >
           <option value="">Usuario</option>
+          {responsables.map((responsable) => (
+            <option key={responsable} value={responsable}>{responsable}</option>
+          ))}
         </select>
-        <select className="h-10 rounded-xl border border-gray-200 bg-white px-3 pr-8 text-sm text-gray-600 focus:border-brand focus:outline-none">
+        <select
+          value={evento}
+          onChange={(e) => setEvento(e.target.value)}
+          className="h-10 rounded-xl border border-gray-200 bg-white px-3 pr-8 text-sm text-gray-600 focus:border-brand focus:outline-none"
+        >
           <option value="">Evento</option>
           <option value="receta_validada">Receta validada</option>
           <option value="stock_ajustado">Stock ajustado</option>
           <option value="nueva_recepcion">Nueva recepción</option>
         </select>
-        <div className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">
-          📅 01 Oct — 31 Oct, 2023
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">
+          <Calendar className="h-4 w-4 text-gray-400" />
+          <input
+            type="date"
+            value={desde}
+            onChange={(e) => setDesde(e.target.value)}
+            className="h-7 bg-transparent text-sm text-gray-600 focus:outline-none"
+            aria-label="Fecha desde"
+          />
+          <span className="text-gray-300">-</span>
+          <input
+            type="date"
+            value={hasta}
+            min={desde || undefined}
+            onChange={(e) => setHasta(e.target.value)}
+            className="h-7 bg-transparent text-sm text-gray-600 focus:outline-none"
+            aria-label="Fecha hasta"
+          />
         </div>
       </div>
 

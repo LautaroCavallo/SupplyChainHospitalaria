@@ -100,6 +100,55 @@ export class PrismaInventarioRepository implements IInventarioRepository {
     return data.map(this.toEntity);
   }
 
+  async findByGenericoConStockFefo(nombreGenerico: string, cantidad: number): Promise<ProductoInventario | null> {
+    const search = nombreGenerico.trim();
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const data = await prisma.productoInventario.findMany({
+      where: {
+        activo: true,
+        categoria: 'MEDICAMENTO',
+        stockActual: { gte: cantidad },
+        OR: [
+          { nombre: { contains: search } },
+          { principioActivo: { contains: search } },
+          { generico: { is: { nombre: { contains: search } } } },
+          { generico: { is: { principioActivo: { contains: search } } } },
+          { generico: { is: { nombreNormalizado: { contains: search.toLowerCase() } } } },
+        ],
+      },
+      include: {
+        proveedor: true,
+        generico: true,
+        lotes: {
+          where: {
+            stockDisponible: { gt: 0 },
+            fechaVencimiento: { gte: today },
+          },
+          orderBy: [
+            { fechaVencimiento: 'asc' },
+            { createdAt: 'asc' },
+          ],
+        },
+      },
+    });
+
+    const candidates = data
+      .map((producto) => ({
+        producto,
+        stockDisponibleEnLotes: producto.lotes.reduce((total, lote) => total + lote.stockDisponible, 0),
+        fechaMasProxima: producto.lotes[0]?.fechaVencimiento,
+      }))
+      .filter((candidate) => candidate.stockDisponibleEnLotes >= cantidad && candidate.fechaMasProxima)
+      .sort((a, b) => {
+        const byFecha = a.fechaMasProxima.getTime() - b.fechaMasProxima.getTime();
+        return byFecha !== 0 ? byFecha : a.producto.nombre.localeCompare(b.producto.nombre);
+      });
+
+    return candidates[0] ? this.toEntity(candidates[0].producto) : null;
+  }
+
   async create(data: CreateProductoData): Promise<ProductoInventario> {
     const created = await prisma.productoInventario.create({
       data,

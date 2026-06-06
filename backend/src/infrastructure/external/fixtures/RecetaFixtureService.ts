@@ -70,6 +70,26 @@ export class RecetaFixtureService implements IRecetaService {
       consumida: false,
       estado: 'Activa',
     },
+    '8505': {
+      recetaId: '8505',
+      valida: true,
+      pacienteId: '10503',
+      pacienteNombre: 'Martín Suárez',
+      medicoId: '305',
+      medicoNombre: 'Dra. Ana Torres',
+      items: [
+        {
+          productoId: '',
+          nombre: 'Amoxicilina 500mg',
+          medicamento: 'Amoxicilina 500mg',
+          cantidad: 2,
+          indicaciones: 'Tomar 1 comprimido cada 8 horas por 7 días.',
+        },
+      ],
+      errores: [],
+      consumida: false,
+      estado: 'Activa',
+    },
   };
 
   async validarReceta(recetaId: string): Promise<RecetaValidacion> {

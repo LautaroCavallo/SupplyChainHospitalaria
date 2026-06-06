@@ -18,7 +18,7 @@ const motivos = [
 ];
 
 export default function AjusteStockModal({ isOpen, onClose, producto, onConfirm }: AjusteStockModalProps) {
-  const [tipo, setTipo] = useState<'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO'>('AJUSTE_POSITIVO');
+  const [tipo, setTipo] = useState<'INCREMENTO' | 'DECREMENTO'>('INCREMENTO');
   const [cantidad, setCantidad] = useState(0);
   const [motivo, setMotivo] = useState(motivos[0]);
   const [saving, setSaving] = useState(false);
@@ -34,7 +34,7 @@ export default function AjusteStockModal({ isOpen, onClose, producto, onConfirm 
       setError(null);
       await onConfirm({ tipo, cantidad, motivo });
       setCantidad(0);
-      setTipo('AJUSTE_POSITIVO');
+      setTipo('INCREMENTO');
       setMotivo(motivos[0]);
       onClose();
     } catch {
@@ -66,8 +66,8 @@ export default function AjusteStockModal({ isOpen, onClose, producto, onConfirm 
               <input
                 type="radio"
                 name="tipo"
-                checked={tipo === 'AJUSTE_POSITIVO'}
-                onChange={() => setTipo('AJUSTE_POSITIVO')}
+                checked={tipo === 'INCREMENTO'}
+                onChange={() => setTipo('INCREMENTO')}
                 className="h-4 w-4 border-gray-300 text-brand focus:ring-brand"
               />
               <span className="text-sm text-gray-700">Incremento</span>
@@ -76,8 +76,8 @@ export default function AjusteStockModal({ isOpen, onClose, producto, onConfirm 
               <input
                 type="radio"
                 name="tipo"
-                checked={tipo === 'AJUSTE_NEGATIVO'}
-                onChange={() => setTipo('AJUSTE_NEGATIVO')}
+                checked={tipo === 'DECREMENTO'}
+                onChange={() => setTipo('DECREMENTO')}
                 className="h-4 w-4 border-gray-300 text-brand focus:ring-brand"
               />
               <span className="text-sm text-gray-700">Decremento</span>

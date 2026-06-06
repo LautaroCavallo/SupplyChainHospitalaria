@@ -18,7 +18,7 @@ export class ConsumirReceta {
     private readonly movimientoRepository: IMovimientoStockRepository,
   ) {}
 
-  async execute(recetaId: string, items: ItemReceta[]): Promise<void> {
+  async execute(recetaId: string, items: ItemReceta[], usuarioId?: string): Promise<void> {
     const validacion = await this.recetaService.validarReceta(recetaId);
     if (!validacion.valida) {
       throw new ValidationError(`La receta ${recetaId} no es válida`);
@@ -45,8 +45,7 @@ export class ConsumirReceta {
       const itemLabel = item.medicamento ?? item.productoId ?? `ítem ${index + 1}`;
       const producto = item.productoId
         ? await this.inventarioRepository.findById(item.productoId)
-        : (await this.inventarioRepository.findByGenerico(item.medicamento ?? ''))
-            .find((p) => p.stockActual >= cantidad);
+        : await this.inventarioRepository.findByGenericoConStockFefo(item.medicamento ?? '', cantidad);
 
       if (!producto) {
         errors.push(`No hay producto comercial disponible para ${itemLabel}`);
@@ -91,6 +90,7 @@ export class ConsumirReceta {
 
     const registro = await this.movimientoRepository.registrarConsumoReceta({
       recetaId,
+      usuarioId,
       items: consumoItems,
     });
 

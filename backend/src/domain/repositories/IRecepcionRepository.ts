@@ -46,5 +46,6 @@ export interface IRecepcionRepository {
   findById(id: string): Promise<Recepcion | null>;
   create(data: CreateRecepcionData): Promise<Recepcion>;
   update(id: string, data: UpdateRecepcionData): Promise<Recepcion>;
+  procesarStock(id: string, usuarioId?: string): Promise<Recepcion>;
   count(filtros?: FiltrosRecepcion): Promise<number>;
 }

@@ -5,6 +5,15 @@ export class ObtenerLotes {
   constructor(private readonly loteRepository: ILoteRepository) {}
 
   async execute(productoId: string): Promise<LoteResponseDTO[]> {
-    return this.loteRepository.findByProductoId(productoId);
+    const lotes = await this.loteRepository.findByProductoId(productoId);
+    return lotes.map((lote) => ({
+      id: lote.id,
+      numeroLote: lote.numeroLote,
+      productoId: lote.productoId,
+      fechaVencimiento: lote.fechaVencimiento,
+      stockDisponible: lote.stockDisponible,
+      stockInicial: lote.stockInicial,
+      estado: lote.calcularEstado(),
+    }));
   }
 }

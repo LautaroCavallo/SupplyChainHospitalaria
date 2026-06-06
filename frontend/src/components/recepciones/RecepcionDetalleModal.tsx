@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Printer, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Printer, ChevronLeft, ChevronRight, Loader2, PackageCheck } from 'lucide-react';
 import type { Recepcion } from '../../types';
 import Badge from '../common/Badge';
+import ConfirmModal from '../common/ConfirmModal';
 import SortableTh, { type SortDirection } from '../common/SortableTh';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../../utils/sort';
 
@@ -9,6 +10,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   recepcion: Recepcion | null;
+  onConfirmReception?: (recepcion: Recepcion) => Promise<void>;
 }
 
 const PAGE_SIZE = 3;
@@ -22,8 +24,11 @@ function formatDateLong(d: string): string {
   return new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-export default function RecepcionDetalleModal({ isOpen, onClose, recepcion }: Props) {
+export default function RecepcionDetalleModal({ isOpen, onClose, recepcion, onConfirmReception }: Props) {
   const [page, setPage] = useState(1);
+  const [confirmProcessOpen, setConfirmProcessOpen] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [processError, setProcessError] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
     key: 'producto',
     direction: 'asc',
@@ -54,14 +59,29 @@ export default function RecepcionDetalleModal({ isOpen, onClose, recepcion }: Pr
   const initials = getInitials(nombreProveedor);
   const recId = recepcion.id.startsWith('REC') ? recepcion.id : `REC-${recepcion.id.slice(-4).toUpperCase()}`;
 
-  const badgeVariant = recepcion.estado === 'PROCESADA' ? 'success' : recepcion.estado === 'CONFIRMADA' ? 'info' : 'warning';
-  const badgeLabel = recepcion.estado === 'PROCESADA' ? 'Procesada' : recepcion.estado === 'CONFIRMADA' ? 'Confirmada' : 'Borrador';
+  const badgeVariant = recepcion.estado === 'CONFIRMADA' ? 'success' : recepcion.estado === 'PROCESADA' ? 'info' : 'warning';
+  const badgeLabel = recepcion.estado === 'CONFIRMADA' ? 'Confirmada' : recepcion.estado === 'PROCESADA' ? 'Procesada' : 'Borrador';
 
   const totalItems = recepcion.totalItems ?? recepcion.detalles.length;
   const totalPages = Math.ceil(sortedDetalles.length / PAGE_SIZE);
   const pageDetalles = sortedDetalles.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const startIdx = (page - 1) * PAGE_SIZE + 1;
   const endIdx = Math.min(page * PAGE_SIZE, recepcion.detalles.length);
+  const canConfirm = recepcion.estado === 'PROCESADA' && !!onConfirmReception;
+
+  const handleConfirmReception = async () => {
+    if (!canConfirm) return;
+    try {
+      setProcessing(true);
+      setProcessError(null);
+      await onConfirmReception(recepcion);
+      setConfirmProcessOpen(false);
+    } catch {
+      setProcessError('No se pudo confirmar la recepción');
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
@@ -144,10 +164,23 @@ export default function RecepcionDetalleModal({ isOpen, onClose, recepcion }: Pr
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-gray-100 px-7 py-4">
-          <p className="text-xs text-gray-400">
-            Mostrando {startIdx} - {endIdx} de {totalItems} items en esta recepción
-          </p>
+          <div>
+            <p className="text-xs text-gray-400">
+              Mostrando {startIdx} - {endIdx} de {totalItems} items en esta recepción
+            </p>
+            {processError && <p className="mt-1 text-xs text-red-600">{processError}</p>}
+          </div>
           <div className="flex items-center gap-2">
+            {canConfirm && (
+              <button
+                onClick={() => setConfirmProcessOpen(true)}
+                disabled={processing}
+                className="mr-2 flex h-9 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-light disabled:opacity-50"
+              >
+                {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
+                Confirmar
+              </button>
+            )}
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
@@ -165,6 +198,16 @@ export default function RecepcionDetalleModal({ isOpen, onClose, recepcion }: Pr
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={confirmProcessOpen}
+        title="Confirmar recepción"
+        description="Esta acción ingresará los productos al stock y marcará la recepción como confirmada."
+        confirmLabel="Confirmar"
+        cancelLabel="Cancelar"
+        loading={processing}
+        onConfirm={handleConfirmReception}
+        onCancel={() => setConfirmProcessOpen(false)}
+      />
     </div>
   );
 }

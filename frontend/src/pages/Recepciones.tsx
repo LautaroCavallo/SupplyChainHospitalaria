@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Loader2, Eye, Edit } from 'lucide-react';
-import { getRecepciones, getRecepcion } from '../api/recepciones';
+import { Plus, Loader2, Eye, Edit, PackageCheck } from 'lucide-react';
+import { getRecepciones, getRecepcion, confirmarRecepcion } from '../api/recepciones';
 import type { Recepcion, PaginatedResponse, EstadoRecepcion } from '../types';
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
@@ -11,23 +11,23 @@ import { applySortDirection, compareDate, compareNumber, compareText, nextSortDi
 
 const estadoBadge: Record<EstadoRecepcion, { label: string; variant: 'success' | 'warning' | 'info' }> = {
   BORRADOR:   { label: 'Borrador',   variant: 'warning' },
-  CONFIRMADA: { label: 'Confirmada', variant: 'info' },
-  PROCESADA:  { label: 'Procesada',  variant: 'success' },
+  PROCESADA:  { label: 'Procesada',  variant: 'info' },
+  CONFIRMADA: { label: 'Confirmada', variant: 'success' },
 };
 
 const tabs: { label: string; value: string }[] = [
   { label: 'TODOS',     value: '' },
   { label: 'BORRADOR',  value: 'BORRADOR' },
-  { label: 'CONFIRMADA', value: 'CONFIRMADA' },
   { label: 'PROCESADA',  value: 'PROCESADA' },
+  { label: 'CONFIRMADA', value: 'CONFIRMADA' },
 ];
 
 type SortKey = 'id' | 'proveedor' | 'totalItems' | 'fechaRecepcion' | 'estado';
 
 const estadoSortOrder: Record<EstadoRecepcion, number> = {
   BORRADOR: 0,
-  CONFIRMADA: 1,
-  PROCESADA: 2,
+  PROCESADA: 1,
+  CONFIRMADA: 2,
 };
 
 function formatDate(d: string): string {
@@ -53,6 +53,7 @@ export default function Recepciones() {
   const [detailModal, setDetailModal] = useState(false);
   const [selectedRecepcion, setSelectedRecepcion] = useState<Recepcion | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
     key: 'fechaRecepcion',
     direction: 'desc',
@@ -89,6 +90,17 @@ export default function Recepciones() {
       setDetailModal(true);
     } finally {
       setLoadingDetail(false);
+    }
+  };
+
+  const handleConfirmRecepcion = async (recepcion: Recepcion) => {
+    try {
+      setProcessingId(recepcion.id);
+      const confirmed = await confirmarRecepcion(recepcion.id);
+      setSelectedRecepcion(confirmed);
+      await fetchData();
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -208,6 +220,24 @@ export default function Recepciones() {
                             >
                               <Edit className="h-4 w-4" />
                             </button>
+                          ) : r.estado === 'PROCESADA' ? (
+                            <>
+                              <button
+                                onClick={() => handleConfirmRecepcion(r)}
+                                disabled={processingId === r.id}
+                                title="Confirmar e ingresar al stock"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-50"
+                              >
+                                {processingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
+                              </button>
+                              <button
+                                onClick={() => handleRowClick(r)}
+                                title="Ver detalle"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                            </>
                           ) : (
                             <button
                               onClick={() => handleRowClick(r)}
@@ -261,6 +291,7 @@ export default function Recepciones() {
         isOpen={detailModal}
         onClose={() => { setDetailModal(false); setSelectedRecepcion(null); }}
         recepcion={selectedRecepcion}
+        onConfirmReception={handleConfirmRecepcion}
       />
     </div>
   );

@@ -15,6 +15,7 @@ export class MovimientoStock {
   readonly referencia?: string;
   readonly usuarioId?: string;
   readonly createdAt: Date;
+  readonly producto?: { nombre: string };
 
   constructor(props: {
     id: string;
@@ -26,6 +27,7 @@ export class MovimientoStock {
     referencia?: string;
     usuarioId?: string;
     createdAt?: Date;
+    producto?: { nombre: string };
   }) {
     this.id = props.id;
     this.productoId = props.productoId;
@@ -36,6 +38,7 @@ export class MovimientoStock {
     this.referencia = props.referencia;
     this.usuarioId = props.usuarioId;
     this.createdAt = props.createdAt ?? new Date();
+    this.producto = props.producto;
   }
 
   esIngreso(): boolean {

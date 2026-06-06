@@ -9,11 +9,13 @@ import { solicitudCompraRoutes } from './solicitud-compra.routes';
 import { recetaRoutes } from './receta.routes';
 import { authRoutes } from './auth.routes';
 import { medicamentoRoutes } from './medicamento.routes';
+import { dashboardRoutes } from './dashboard.routes';
 
 export function createRoutes(container: Container): Router {
   const router = Router();
 
   router.use('/auth', authRoutes(container));
+  router.use('/dashboard', dashboardRoutes(container));
   router.use('/medicamentos', medicamentoRoutes(container));
   router.use('/vademecum', vademecumRoutes(container));
   router.use('/proveedores', proveedorRoutes(container));

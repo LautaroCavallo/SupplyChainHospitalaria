@@ -1,7 +1,7 @@
 import { MovimientoStock, TipoMovimiento } from '../entities/MovimientoStock';
 
 export interface FiltrosMovimiento {
-  tipo?: TipoMovimiento;
+  tipo?: TipoMovimiento | 'SALIDAS';
   fechaDesde?: Date;
   fechaHasta?: Date;
   usuarioId?: string;
@@ -21,6 +21,7 @@ export interface CreateMovimientoData {
 
 export interface ConsumoRecetaData {
   recetaId: string;
+  usuarioId?: string;
   items: Array<{
     productoId: string;
     loteId?: string;
@@ -35,6 +36,8 @@ export interface ConsumoRecetaResult {
 
 export interface IMovimientoStockRepository {
   findByProductoId(productoId: string, filtros?: FiltrosMovimiento): Promise<MovimientoStock[]>;
+  findByLoteId(loteId: string, filtros?: FiltrosMovimiento): Promise<MovimientoStock[]>;
+  countByLoteId(loteId: string, filtros?: FiltrosMovimiento): Promise<number>;
   create(data: CreateMovimientoData): Promise<MovimientoStock>;
   findAll(filtros?: FiltrosMovimiento): Promise<MovimientoStock[]>;
   existsByTipoAndReferencia(tipo: TipoMovimiento, referencia: string): Promise<boolean>;

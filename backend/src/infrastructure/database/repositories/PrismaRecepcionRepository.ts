@@ -89,6 +89,98 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
     });
   }
 
+  async procesarStock(id: string, usuarioId?: string): Promise<Recepcion> {
+    return prisma.$transaction(async (tx) => {
+      const recepcion = await tx.recepcion.findUnique({
+        where: { id },
+        include: {
+          proveedor: true,
+          detalles: { include: { producto: true } },
+        },
+      });
+
+      if (!recepcion) {
+        throw new Error(`Recepción con id ${id} no encontrada`);
+      }
+
+      const ingresosExistentes = await tx.movimientoStock.count({
+        where: {
+          tipo: 'INGRESO',
+          referencia: id,
+        },
+      });
+
+      if (ingresosExistentes > 0) {
+        return tx.recepcion.update({
+          where: { id },
+          data: { estado: 'CONFIRMADA', usuarioId: usuarioId ?? recepcion.usuarioId },
+          include: {
+            proveedor: true,
+            detalles: { include: { producto: true } },
+          },
+        }) as any;
+      }
+
+      for (const detalle of recepcion.detalles) {
+        const loteExistente = await tx.lote.findUnique({
+          where: {
+            productoId_numeroLote: {
+              productoId: detalle.productoId,
+              numeroLote: detalle.lote,
+            },
+          },
+        });
+
+        const lote = loteExistente
+          ? await tx.lote.update({
+              where: { id: loteExistente.id },
+              data: {
+                stockInicial: { increment: detalle.cantidad },
+                stockDisponible: { increment: detalle.cantidad },
+                fechaVencimiento: detalle.fechaVencimiento,
+                estado: 'VIGENTE',
+              },
+            })
+          : await tx.lote.create({
+              data: {
+                productoId: detalle.productoId,
+                numeroLote: detalle.lote,
+                fechaVencimiento: detalle.fechaVencimiento,
+                stockInicial: detalle.cantidad,
+                stockDisponible: detalle.cantidad,
+                estado: 'VIGENTE',
+              },
+            });
+
+        await tx.productoInventario.update({
+          where: { id: detalle.productoId },
+          data: { stockActual: { increment: detalle.cantidad } },
+        });
+
+        await tx.movimientoStock.create({
+          data: {
+            productoId: detalle.productoId,
+            loteId: lote.id,
+            tipo: 'INGRESO',
+            cantidad: detalle.cantidad,
+            motivo: `Recepción ${recepcion.id} - Remito: ${recepcion.remito ?? 'S/N'}`,
+            referencia: recepcion.id,
+            usuarioId: usuarioId ?? recepcion.usuarioId ?? null,
+          },
+        });
+      }
+
+      return tx.recepcion.update({
+        where: { id },
+        data: { estado: 'CONFIRMADA', usuarioId: usuarioId ?? recepcion.usuarioId },
+        include: {
+          proveedor: true,
+          detalles: { include: { producto: true } },
+        },
+      }) as any;
+    });
+  }
+
   async count(filtros: FiltrosRecepcion = {}): Promise<number> {
     const { proveedorId, estado, fechaDesde, fechaHasta } = filtros;
     const where: any = {};

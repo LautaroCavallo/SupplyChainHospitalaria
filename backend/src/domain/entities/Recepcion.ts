@@ -82,8 +82,8 @@ export class Recepcion {
   }
 
   confirmar(): void {
-    if (this.estado !== 'BORRADOR') {
-      throw new Error('Solo se puede confirmar una recepción en estado BORRADOR');
+    if (this.estado !== 'PROCESADA') {
+      throw new Error('Solo se puede confirmar una recepción en estado PROCESADA');
     }
     if (this.detalles.length === 0) {
       throw new Error('La recepción debe tener al menos un detalle');
@@ -94,8 +94,8 @@ export class Recepcion {
   }
 
   procesar(): void {
-    if (this.estado !== 'CONFIRMADA') {
-      throw new Error('Solo se puede procesar una recepción en estado CONFIRMADA');
+    if (this.estado !== 'BORRADOR') {
+      throw new Error('Solo se puede procesar una recepción en estado BORRADOR');
     }
     this.estado = 'PROCESADA';
     this.updatedAt = new Date();

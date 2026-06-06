@@ -21,9 +21,11 @@ import { EliminarProveedor } from '../application/use-cases/proveedores/Eliminar
 import { ListarInventario } from '../application/use-cases/inventario/ListarInventario';
 import { ObtenerProductoInventario } from '../application/use-cases/inventario/ObtenerProductoInventario';
 import { ObtenerProductoPorEan } from '../application/use-cases/inventario/ObtenerProductoPorEan';
+import { ObtenerInventarioSummary } from '../application/use-cases/inventario/ObtenerInventarioSummary';
 import { AjustarStock } from '../application/use-cases/inventario/AjustarStock';
 import { ObtenerMovimientos } from '../application/use-cases/inventario/ObtenerMovimientos';
 import { ObtenerLotes } from '../application/use-cases/inventario/ObtenerLotes';
+import { ObtenerHistorialLote } from '../application/use-cases/inventario/ObtenerHistorialLote';
 import { DetectarStockCritico } from '../application/use-cases/alertas/DetectarStockCritico';
 import { ListarRecepciones } from '../application/use-cases/recepciones/ListarRecepciones';
 import { ObtenerRecepcion } from '../application/use-cases/recepciones/ObtenerRecepcion';
@@ -35,6 +37,8 @@ import { ListarSolicitudesCompra } from '../application/use-cases/solicitudes/Li
 import { CrearSolicitudCompra } from '../application/use-cases/solicitudes/CrearSolicitudCompra';
 import { ValidarReceta } from '../application/use-cases/recetas/ValidarReceta';
 import { ConsumirReceta } from '../application/use-cases/recetas/ConsumirReceta';
+import { ObtenerDashboard } from '../application/use-cases/dashboard/ObtenerDashboard';
+import { ObtenerActividadReciente } from '../application/use-cases/dashboard/ObtenerActividadReciente';
 
 export function createContainer() {
   let currentAuthToken: string | undefined;
@@ -65,9 +69,11 @@ export function createContainer() {
   const listarInventario = new ListarInventario(inventarioRepo);
   const obtenerProductoInventario = new ObtenerProductoInventario(inventarioRepo);
   const obtenerProductoPorEan = new ObtenerProductoPorEan(inventarioRepo);
+  const obtenerInventarioSummary = new ObtenerInventarioSummary(inventarioRepo);
   const ajustarStock = new AjustarStock(inventarioRepo, movimientoRepo, loteRepo);
   const obtenerMovimientos = new ObtenerMovimientos(movimientoRepo);
   const obtenerLotes = new ObtenerLotes(loteRepo);
+  const obtenerHistorialLote = new ObtenerHistorialLote(movimientoRepo);
 
   const detectarStockCritico = new DetectarStockCritico(inventarioRepo);
 
@@ -76,13 +82,15 @@ export function createContainer() {
   const crearRecepcion = new CrearRecepcion(recepcionRepo, proveedorRepo);
   const actualizarRecepcion = new ActualizarRecepcion(recepcionRepo, proveedorRepo);
   const confirmarRecepcion = new ConfirmarRecepcion(recepcionRepo);
-  const procesarRecepcion = new ProcesarRecepcion(recepcionRepo, inventarioRepo, loteRepo, movimientoRepo);
+  const procesarRecepcion = new ProcesarRecepcion(recepcionRepo);
 
   const listarSolicitudesCompra = new ListarSolicitudesCompra(solicitudCompraRepo);
   const crearSolicitudCompra = new CrearSolicitudCompra(solicitudCompraRepo, inventarioRepo);
 
   const validarReceta = new ValidarReceta(recetaService, movimientoRepo);
   const consumirReceta = new ConsumirReceta(recetaService, inventarioRepo, movimientoRepo);
+  const obtenerDashboard = new ObtenerDashboard(inventarioRepo, movimientoRepo);
+  const obtenerActividadReciente = new ObtenerActividadReciente(movimientoRepo);
 
   return {
     buscarMedicamentos,
@@ -95,9 +103,11 @@ export function createContainer() {
     listarInventario,
     obtenerProductoInventario,
     obtenerProductoPorEan,
+    obtenerInventarioSummary,
     ajustarStock,
     obtenerMovimientos,
     obtenerLotes,
+    obtenerHistorialLote,
     detectarStockCritico,
     listarRecepciones,
     obtenerRecepcion,
@@ -109,6 +119,8 @@ export function createContainer() {
     crearSolicitudCompra,
     validarReceta,
     consumirReceta,
+    obtenerDashboard,
+    obtenerActividadReciente,
     coreAuthService,
     inventarioRepository: inventarioRepo,
     setCurrentAuthToken: (token?: string) => {

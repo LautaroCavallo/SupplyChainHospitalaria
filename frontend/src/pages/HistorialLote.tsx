@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { Calendar, ChevronRight, Loader2 } from 'lucide-react';
 import { getHistorialLote, getProducto, getLotes } from '../api/inventario';
 import type { MovimientoLote, PaginatedResponse, TipoMovimiento } from '../types';
 import Badge from '../components/common/Badge';
@@ -13,13 +13,13 @@ const tipoBadge: Record<TipoMovimiento, { label: string; variant: 'success' | 'd
   EGRESO:          { label: 'Salida',   variant: 'danger' },
   AJUSTE_POSITIVO: { label: 'Ajuste',   variant: 'warning' },
   AJUSTE_NEGATIVO: { label: 'Ajuste',   variant: 'warning' },
-  CONSUMO_RECETA:  { label: 'Consumo',  variant: 'info' },
+  CONSUMO_RECETA:  { label: 'Salida por receta',  variant: 'info' },
 };
 
 const tabs = [
   { label: 'TODOS', value: '' },
   { label: 'ENTRADAS', value: 'INGRESO' },
-  { label: 'SALIDAS', value: 'EGRESO' },
+  { label: 'SALIDAS', value: 'SALIDAS' },
   { label: 'AJUSTES', value: 'AJUSTE_POSITIVO' },
 ];
 
@@ -50,6 +50,8 @@ export default function HistorialLote() {
   const [data, setData] = useState<PaginatedResponse<MovimientoLote> | null>(null);
   const [page, setPage] = useState(1);
   const [tipoFilter, setTipoFilter] = useState('');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
   const [loading, setLoading] = useState(true);
   const [nombreMedicamento, setNombreMedicamento] = useState('');
   const [numeroLote, setNumeroLote] = useState('');
@@ -63,7 +65,13 @@ export default function HistorialLote() {
     try {
       setLoading(true);
       const [histRes, prod, lotes] = await Promise.all([
-        getHistorialLote(medicamentoId, loteId, { page, limit: 10, tipo: tipoFilter || undefined }),
+        getHistorialLote(medicamentoId, loteId, {
+          page,
+          limit: 10,
+          tipo: tipoFilter || undefined,
+          fechaDesde: fechaDesde || undefined,
+          fechaHasta: fechaHasta || undefined,
+        }),
         getProducto(medicamentoId).catch(() => null),
         getLotes(medicamentoId).catch(() => []),
       ]);
@@ -72,7 +80,7 @@ export default function HistorialLote() {
       const lote = lotes.find((l) => l.id === loteId);
       if (lote) setNumeroLote(lote.numeroLote);
     } catch { /* graceful */ } finally { setLoading(false); }
-  }, [medicamentoId, loteId, page, tipoFilter]);
+  }, [medicamentoId, loteId, page, tipoFilter, fechaDesde, fechaHasta]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -133,8 +141,24 @@ export default function HistorialLote() {
             {tab.label}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">
-          📅 01 Oct — 31 Oct, 2023
+        <div className="ml-auto flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">
+          <Calendar className="h-4 w-4 text-gray-400" />
+          <input
+            type="date"
+            value={fechaDesde}
+            onChange={(e) => { setFechaDesde(e.target.value); setPage(1); }}
+            className="h-7 bg-transparent text-sm text-gray-600 focus:outline-none"
+            aria-label="Fecha desde"
+          />
+          <span className="text-gray-300">-</span>
+          <input
+            type="date"
+            value={fechaHasta}
+            min={fechaDesde || undefined}
+            onChange={(e) => { setFechaHasta(e.target.value); setPage(1); }}
+            className="h-7 bg-transparent text-sm text-gray-600 focus:outline-none"
+            aria-label="Fecha hasta"
+          />
         </div>
       </div>
 

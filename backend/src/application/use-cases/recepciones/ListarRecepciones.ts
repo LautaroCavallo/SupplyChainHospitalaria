@@ -15,7 +15,7 @@ export class ListarRecepciones {
       total,
       page: filtros.page,
       limit: filtros.limit,
-      totalPages: Math.ceil(total / filtros.limit),
+      totalPages: Math.max(1, Math.ceil(total / filtros.limit)),
     };
   }
 }

@@ -48,6 +48,7 @@ export interface IInventarioRepository {
   findByEan(ean: string): Promise<ProductoInventario | null>;
   findByTroquel(troquel: string): Promise<ProductoInventario | null>;
   findByGenerico(nombreGenerico: string): Promise<ProductoInventario[]>;
+  findByGenericoConStockFefo(nombreGenerico: string, cantidad: number): Promise<ProductoInventario | null>;
   create(data: CreateProductoData): Promise<ProductoInventario>;
   update(id: string, data: UpdateProductoData): Promise<ProductoInventario>;
   updateStock(id: string, cantidad: number): Promise<ProductoInventario>;

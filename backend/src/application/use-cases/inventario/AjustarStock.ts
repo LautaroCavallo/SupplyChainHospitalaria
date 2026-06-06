@@ -11,7 +11,7 @@ export class AjustarStock {
     private readonly loteRepository: ILoteRepository,
   ) {}
 
-  async execute(productoId: string, dto: AjusteStockDTO): Promise<void> {
+  async execute(productoId: string, dto: AjusteStockDTO, usuarioId?: string): Promise<void> {
     const producto = await this.inventarioRepository.findById(productoId);
     if (!producto) {
       throw new NotFoundError(`Producto con id ${productoId} no encontrado`);
@@ -59,6 +59,7 @@ export class AjustarStock {
       tipo: tipoMovimiento,
       cantidad: dto.cantidad,
       motivo: dto.motivo,
+      usuarioId,
     });
   }
 }

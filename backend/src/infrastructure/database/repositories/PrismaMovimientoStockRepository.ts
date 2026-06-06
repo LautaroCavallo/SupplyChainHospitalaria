@@ -17,7 +17,8 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
     const { tipo, fechaDesde, fechaHasta, page = 1, limit = 20 } = filtros;
     const where: any = { productoId };
 
-    if (tipo) where.tipo = tipo;
+    if (tipo === 'SALIDAS') where.tipo = { in: ['EGRESO', 'CONSUMO_RECETA'] };
+    else if (tipo) where.tipo = tipo;
     if (fechaDesde || fechaHasta) {
       where.createdAt = {};
       if (fechaDesde) where.createdAt.gte = fechaDesde;
@@ -33,6 +34,44 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
     });
 
     return data.map(this.toEntity);
+  }
+
+  async findByLoteId(loteId: string, filtros: FiltrosMovimiento = {}): Promise<MovimientoStock[]> {
+    const { tipo, fechaDesde, fechaHasta, page = 1, limit = 20 } = filtros;
+    const where: any = { loteId };
+
+    if (tipo === 'SALIDAS') where.tipo = { in: ['EGRESO', 'CONSUMO_RECETA'] };
+    else if (tipo) where.tipo = tipo;
+    if (fechaDesde || fechaHasta) {
+      where.createdAt = {};
+      if (fechaDesde) where.createdAt.gte = fechaDesde;
+      if (fechaHasta) where.createdAt.lte = fechaHasta;
+    }
+
+    const data = await prisma.movimientoStock.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      include: { lote: true, producto: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return data.map(this.toEntity);
+  }
+
+  async countByLoteId(loteId: string, filtros: FiltrosMovimiento = {}): Promise<number> {
+    const { tipo, fechaDesde, fechaHasta } = filtros;
+    const where: any = { loteId };
+
+    if (tipo === 'SALIDAS') where.tipo = { in: ['EGRESO', 'CONSUMO_RECETA'] };
+    else if (tipo) where.tipo = tipo;
+    if (fechaDesde || fechaHasta) {
+      where.createdAt = {};
+      if (fechaDesde) where.createdAt.gte = fechaDesde;
+      if (fechaHasta) where.createdAt.lte = fechaHasta;
+    }
+
+    return prisma.movimientoStock.count({ where });
   }
 
   async existsByTipoAndReferencia(tipo: TipoMovimiento, referencia: string): Promise<boolean> {
@@ -76,6 +115,8 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
       }
 
       const errores: string[] = [];
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
 
       for (const item of data.items) {
         const producto = await tx.productoInventario.findUnique({
@@ -96,6 +137,26 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
           errores.push(
             `Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stockActual}, solicitado: ${item.cantidad}. Puede dispensar ${producto.stockActual}.`,
           );
+          continue;
+        }
+
+        const lotesDisponibles = await tx.lote.findMany({
+          where: {
+            productoId: item.productoId,
+            stockDisponible: { gt: 0 },
+            fechaVencimiento: { gte: today },
+          },
+          orderBy: [
+            { fechaVencimiento: 'asc' },
+            { createdAt: 'asc' },
+          ],
+        });
+
+        const disponibleEnLotes = lotesDisponibles.reduce((total, lote) => total + lote.stockDisponible, 0);
+        if (disponibleEnLotes < item.cantidad) {
+          errores.push(
+            `Stock insuficiente en lotes vigentes para ${producto.nombre}. Disponible en lotes: ${disponibleEnLotes}, solicitado: ${item.cantidad}.`,
+          );
         }
       }
 
@@ -104,20 +165,46 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
       }
 
       for (const item of data.items) {
+        const lotesDisponibles = await tx.lote.findMany({
+          where: {
+            productoId: item.productoId,
+            stockDisponible: { gt: 0 },
+            fechaVencimiento: { gte: today },
+          },
+          orderBy: [
+            { fechaVencimiento: 'asc' },
+            { createdAt: 'asc' },
+          ],
+        });
+        let restante = item.cantidad;
+
+        for (const lote of lotesDisponibles) {
+          if (restante <= 0) break;
+
+          const cantidadDelLote = Math.min(restante, lote.stockDisponible);
+          await tx.lote.update({
+            where: { id: lote.id },
+            data: { stockDisponible: { decrement: cantidadDelLote } },
+          });
+
+          await tx.movimientoStock.create({
+            data: {
+              productoId: item.productoId,
+              loteId: lote.id,
+              tipo: 'CONSUMO_RECETA',
+              cantidad: cantidadDelLote,
+              motivo: `Consumo por receta ${data.recetaId} - Lote ${lote.numeroLote}`,
+              referencia: data.recetaId,
+              usuarioId: data.usuarioId ?? null,
+            },
+          });
+
+          restante -= cantidadDelLote;
+        }
+
         await tx.productoInventario.update({
           where: { id: item.productoId },
           data: { stockActual: { decrement: item.cantidad } },
-        });
-
-        await tx.movimientoStock.create({
-          data: {
-            productoId: item.productoId,
-            loteId: item.loteId ?? null,
-            tipo: 'CONSUMO_RECETA',
-            cantidad: item.cantidad,
-            motivo: `Consumo por receta ${data.recetaId}`,
-            referencia: data.recetaId,
-          },
         });
       }
 
@@ -129,7 +216,8 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
     const { tipo, fechaDesde, fechaHasta, usuarioId, page = 1, limit = 20 } = filtros;
     const where: any = {};
 
-    if (tipo) where.tipo = tipo;
+    if (tipo === 'SALIDAS') where.tipo = { in: ['EGRESO', 'CONSUMO_RECETA'] };
+    else if (tipo) where.tipo = tipo;
     if (usuarioId) where.usuarioId = usuarioId;
     if (fechaDesde || fechaHasta) {
       where.createdAt = {};

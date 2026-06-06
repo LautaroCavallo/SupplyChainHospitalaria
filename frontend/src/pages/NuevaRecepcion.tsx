@@ -162,8 +162,8 @@ export default function NuevaRecepcion() {
     try {
       setSaving(true); setError(null);
       const recepcion = await crearRecepcion(buildPayload());
-      const confirmed = await confirmarRecepcion(recepcion.id);
-      await procesarRecepcion(confirmed.id);
+      const processed = await procesarRecepcion(recepcion.id);
+      await confirmarRecepcion(processed.id);
       navigate('/recepciones');
     } catch { setError('Error al confirmar la recepción'); } finally { setSaving(false); }
   };
@@ -342,7 +342,7 @@ export default function NuevaRecepcion() {
       <ConfirmModal
         isOpen={confirmModalOpen}
         title="Confirmar recepción"
-        description="Esta acción guardará el borrador, confirmará la recepción e ingresará los medicamentos al stock."
+        description="Esta acción procesará la recepción, confirmará lo recibido e ingresará los medicamentos al stock."
         confirmLabel="Confirmar"
         cancelLabel="Cancelar"
         loading={saving}

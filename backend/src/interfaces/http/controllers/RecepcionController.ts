@@ -40,7 +40,7 @@ export class RecepcionController {
 
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const data = await this.crearRecepcion.execute(req.body);
+      const data = await this.crearRecepcion.execute(req.body, req.user?.nombre ?? req.user?.id);
       res.status(201).json({ success: true, data });
     } catch (error) {
       next(error);
@@ -58,7 +58,7 @@ export class RecepcionController {
 
   confirmar = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const data = await this.confirmarRecepcion.execute(req.params.id as string);
+      const data = await this.confirmarRecepcion.execute(req.params.id as string, req.user?.nombre ?? req.user?.id);
       res.json({ success: true, data });
     } catch (error) {
       next(error);

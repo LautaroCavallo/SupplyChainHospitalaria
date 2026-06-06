@@ -26,7 +26,13 @@ const nivelConfig: Record<NivelStock, { label: string; variant: 'success' | 'war
   SIN_STOCK: { label: 'Sin stock',  variant: 'danger' },
 };
 
-const categorias = ['Antibióticos', 'Analgésicos', 'Endocrinología', 'Anestesia', 'Cardiología', 'Otro'];
+const categorias = [
+  { label: 'Medicamentos', value: 'MEDICAMENTO' },
+  { label: 'Insumos médicos', value: 'INSUMO_MEDICO' },
+  { label: 'Descartables', value: 'DESCARTABLE' },
+  { label: 'Reactivos', value: 'REACTIVO' },
+  { label: 'Otros', value: 'OTRO' },
+];
 type SortKey = 'nombre' | 'troquel' | 'ean' | 'stockActual' | 'estado';
 
 const nivelSortOrder: Record<NivelStock, number> = {
@@ -190,7 +196,7 @@ export default function Inventario() {
           className="h-10 rounded-xl border border-gray-200 bg-white px-3 pr-8 text-sm text-gray-600 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
         >
           <option value="">Categoría</option>
-          {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
+          {categorias.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
         <select
           value={estado}

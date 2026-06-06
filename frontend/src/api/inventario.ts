@@ -63,7 +63,7 @@ export async function getLotes(id: string): Promise<Lote[]> {
 export async function getHistorialLote(
   medicamentoId: string,
   loteId: string,
-  params?: { page?: number; limit?: number; tipo?: string }
+  params?: { page?: number; limit?: number; tipo?: string; fechaDesde?: string; fechaHasta?: string }
 ): Promise<PaginatedResponse<MovimientoLote>> {
   try {
     const res = await api.get(
