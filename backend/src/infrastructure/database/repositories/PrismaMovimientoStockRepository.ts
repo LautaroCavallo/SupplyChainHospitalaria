@@ -1,5 +1,11 @@
 import prisma from '../prisma-client';
-import { IMovimientoStockRepository, FiltrosMovimiento, CreateMovimientoData } from '../../../domain/repositories/IMovimientoStockRepository';
+import {
+  IMovimientoStockRepository,
+  FiltrosMovimiento,
+  CreateMovimientoData,
+  ConsumoRecetaData,
+  ConsumoRecetaResult,
+} from '../../../domain/repositories/IMovimientoStockRepository';
 import { MovimientoStock, TipoMovimiento } from '../../../domain/entities/MovimientoStock';
 
 export class PrismaMovimientoStockRepository implements IMovimientoStockRepository {
@@ -54,6 +60,69 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
       include: { lote: true, producto: true },
     });
     return this.toEntity(created);
+  }
+
+  async registrarConsumoReceta(data: ConsumoRecetaData): Promise<ConsumoRecetaResult> {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.movimientoStock.count({
+        where: {
+          tipo: 'CONSUMO_RECETA',
+          referencia: data.recetaId,
+        },
+      });
+
+      if (existing > 0) {
+        return { duplicada: true, errores: [] };
+      }
+
+      const errores: string[] = [];
+
+      for (const item of data.items) {
+        const producto = await tx.productoInventario.findUnique({
+          where: { id: item.productoId },
+        });
+
+        if (!producto) {
+          errores.push(`Producto no encontrado en inventario para ${item.productoId}`);
+          continue;
+        }
+
+        if (producto.stockActual <= 0) {
+          errores.push(`No hay stock disponible para ${producto.nombre} (pedido: ${item.cantidad})`);
+          continue;
+        }
+
+        if (producto.stockActual < item.cantidad) {
+          errores.push(
+            `Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stockActual}, solicitado: ${item.cantidad}. Puede dispensar ${producto.stockActual}.`,
+          );
+        }
+      }
+
+      if (errores.length > 0) {
+        return { duplicada: false, errores };
+      }
+
+      for (const item of data.items) {
+        await tx.productoInventario.update({
+          where: { id: item.productoId },
+          data: { stockActual: { decrement: item.cantidad } },
+        });
+
+        await tx.movimientoStock.create({
+          data: {
+            productoId: item.productoId,
+            loteId: item.loteId ?? null,
+            tipo: 'CONSUMO_RECETA',
+            cantidad: item.cantidad,
+            motivo: `Consumo por receta ${data.recetaId}`,
+            referencia: data.recetaId,
+          },
+        });
+      }
+
+      return { duplicada: false, errores: [] };
+    });
   }
 
   async findAll(filtros: FiltrosMovimiento = {}): Promise<MovimientoStock[]> {

@@ -89,24 +89,17 @@ export class ConsumirReceta {
       throw new ValidationError(mensaje);
     }
 
-    for (const item of consumoItems) {
-      const producto = await this.inventarioRepository.findById(item.productoId);
-      if (!producto) {
-        throw new ValidationError(`Producto no encontrado en inventario para ${item.productoId}`);
-      }
+    const registro = await this.movimientoRepository.registrarConsumoReceta({
+      recetaId,
+      items: consumoItems,
+    });
 
-      await this.inventarioRepository.updateStock(
-        producto.id,
-        producto.stockActual - item.cantidad,
-      );
+    if (registro.duplicada) {
+      throw new ValidationError('La receta ya fue dispensada.');
+    }
 
-      await this.movimientoRepository.create({
-        productoId: producto.id,
-        tipo: 'CONSUMO_RECETA',
-        cantidad: item.cantidad,
-        motivo: `Consumo por receta ${recetaId}`,
-        referencia: recetaId,
-      });
+    if (registro.errores.length > 0) {
+      throw new ValidationError(registro.errores.join('; '));
     }
   }
 }

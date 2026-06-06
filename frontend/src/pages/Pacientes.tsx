@@ -63,12 +63,12 @@ export default function Pacientes() {
   };
 
   const handleOpenConfirmConsumo = () => {
-    if (!receta || receta.consumida) return;
+    if (!receta || receta.consumida || !receta.valida) return;
     setConfirmConsumoOpen(true);
   };
 
   const handleRegistrarConsumo = async () => {
-    if (!receta || receta.consumida) return;
+    if (!receta || receta.consumida || !receta.valida) return;
     setConfirmConsumoOpen(false);
 
     try {
@@ -261,7 +261,7 @@ export default function Pacientes() {
             <div className="mt-6 flex justify-end">
               <button
                 onClick={handleOpenConfirmConsumo}
-                disabled={savingConsumo || receta.consumida}
+                disabled={savingConsumo || receta.consumida || !receta.valida}
                 className="flex items-center gap-2 rounded-xl bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-light disabled:opacity-60"
               >
                 {savingConsumo ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}

@@ -19,9 +19,24 @@ export interface CreateMovimientoData {
   usuarioId?: string;
 }
 
+export interface ConsumoRecetaData {
+  recetaId: string;
+  items: Array<{
+    productoId: string;
+    loteId?: string;
+    cantidad: number;
+  }>;
+}
+
+export interface ConsumoRecetaResult {
+  duplicada: boolean;
+  errores: string[];
+}
+
 export interface IMovimientoStockRepository {
   findByProductoId(productoId: string, filtros?: FiltrosMovimiento): Promise<MovimientoStock[]>;
   create(data: CreateMovimientoData): Promise<MovimientoStock>;
   findAll(filtros?: FiltrosMovimiento): Promise<MovimientoStock[]>;
   existsByTipoAndReferencia(tipo: TipoMovimiento, referencia: string): Promise<boolean>;
+  registrarConsumoReceta(data: ConsumoRecetaData): Promise<ConsumoRecetaResult>;
 }

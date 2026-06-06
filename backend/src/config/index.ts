@@ -7,7 +7,9 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   isProduction: process.env.NODE_ENV === 'production',
   cors: {
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: (process.env.CORS_ORIGIN || '*').includes(',')
+      ? (process.env.CORS_ORIGIN || '').split(',').map((origin) => origin.trim()).filter(Boolean)
+      : process.env.CORS_ORIGIN || '*',
   },
   logLevel: process.env.LOG_LEVEL || 'info',
   integrations: {

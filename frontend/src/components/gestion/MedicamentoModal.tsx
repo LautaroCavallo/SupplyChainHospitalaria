@@ -252,10 +252,12 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-gray-200 bg-gray-100/60 px-8 py-4">
-          <button onClick={() => setConfirmOpen(true)} className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700">
-            <Trash2 className="h-4 w-4" />
-            Eliminar medicamento
-          </button>
+          {isEdit ? (
+            <button onClick={() => setConfirmOpen(true)} className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700">
+              <Trash2 className="h-4 w-4" />
+              Eliminar medicamento
+            </button>
+          ) : <span />}
           <div className="flex items-center gap-3">
             <button onClick={onClose}
               className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900">

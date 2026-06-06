@@ -88,7 +88,7 @@ const options: swaggerJsdoc.Options = {
             id: { type: 'string', format: 'uuid' },
             productoId: { type: 'string', format: 'uuid' },
             loteId: { type: 'string', format: 'uuid', nullable: true },
-            tipo: { type: 'string', enum: ['ENTRADA', 'SALIDA', 'AJUSTE'] },
+            tipo: { type: 'string', enum: ['INGRESO', 'EGRESO', 'AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'CONSUMO_RECETA'] },
             cantidad: { type: 'integer' },
             motivo: { type: 'string' },
             referencia: { type: 'string', nullable: true },
@@ -185,6 +185,42 @@ const options: swaggerJsdoc.Options = {
             details: { type: 'array', items: { type: 'object' } },
           },
         },
+        Medicamento: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            nombre: { type: 'string' },
+            categoria: { type: 'string', example: 'Antibióticos' },
+            presentacion: { type: 'string', nullable: true },
+            ean: { type: 'string', nullable: true },
+            laboratorio: { type: 'string', nullable: true },
+            estado: { type: 'string', enum: ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'] },
+            precio: { type: 'number', nullable: true },
+            observaciones: { type: 'string', nullable: true },
+          },
+        },
+        MedicamentoRequest: {
+          type: 'object',
+          properties: {
+            nombre: { type: 'string' },
+            categoria: { type: 'string' },
+            presentacion: { type: 'string', nullable: true },
+            ean: { type: 'string', nullable: true },
+            laboratorio: { type: 'string', nullable: true },
+            estado: { type: 'string', enum: ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'] },
+            precio: { type: 'number', nullable: true },
+            observaciones: { type: 'string', nullable: true },
+          },
+          required: ['nombre'],
+        },
+        MedicamentosSummary: {
+          type: 'object',
+          properties: {
+            total: { type: 'integer' },
+            activos: { type: 'integer' },
+            inactivos: { type: 'integer' },
+          },
+        },
         RecetaItem: {
           type: 'object',
           properties: {
@@ -214,10 +250,11 @@ const options: swaggerJsdoc.Options = {
           type: 'object',
           properties: {
             productoId: { type: 'string' },
+            medicamento: { type: 'string', nullable: true },
             loteId: { type: 'string', nullable: true },
             cantidad: { type: 'integer' },
+            cantConsumo: { type: 'integer', nullable: true },
           },
-          required: ['productoId', 'cantidad'],
         },
         RecetaConsumoRequest: {
           type: 'object',
@@ -239,6 +276,91 @@ const options: swaggerJsdoc.Options = {
       },
     },
     paths: {
+      '/medicamentos': {
+        get: {
+          tags: ['Inventario'],
+          summary: 'Listar medicamentos del inventario',
+          parameters: [
+            { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
+            { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
+            { name: 'busqueda', in: 'query', required: false, schema: { type: 'string' } },
+            { name: 'categoria', in: 'query', required: false, schema: { type: 'string' } },
+            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'] } },
+          ],
+          responses: {
+            '200': {
+              description: 'Listado paginado de medicamentos',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: { type: 'array', items: { $ref: '#/components/schemas/Medicamento' } },
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      totalPages: { type: 'integer' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Inventario'],
+          summary: 'Crear medicamento en inventario',
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/MedicamentoRequest' } } },
+          },
+          responses: {
+            '201': {
+              description: 'Medicamento creado',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Medicamento' } } } } },
+            },
+            '400': { description: 'Solicitud inválida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/medicamentos/summary': {
+        get: {
+          tags: ['Inventario'],
+          summary: 'Resumen de medicamentos',
+          responses: {
+            '200': {
+              description: 'Resumen de medicamentos',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/MedicamentosSummary' } } } } },
+            },
+          },
+        },
+      },
+      '/medicamentos/{id}': {
+        put: {
+          tags: ['Inventario'],
+          summary: 'Actualizar medicamento',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/MedicamentoRequest' } } },
+          },
+          responses: {
+            '200': { description: 'Medicamento actualizado', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Medicamento' } } } } } },
+            '400': { description: 'Solicitud inválida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'Medicamento no encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+        delete: {
+          tags: ['Inventario'],
+          summary: 'Desactivar medicamento',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '204': { description: 'Medicamento desactivado' },
+            '404': { description: 'Medicamento no encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
       '/recetas/{id}/validar': {
         post: {
           tags: ['Recetas'],
@@ -310,7 +432,7 @@ const options: swaggerJsdoc.Options = {
                 schema: { $ref: '#/components/schemas/RecetaConsumoRequest' },
                 example: {
                   items: [
-                    { productoId: 'uuid-del-producto', loteId: 'uuid-del-lote', cantidad: 2 },
+                    { medicamento: 'Amoxicilina 500mg', cantConsumo: 2 },
                   ],
                 },
               },

@@ -110,6 +110,7 @@ export function createContainer() {
     validarReceta,
     consumirReceta,
     coreAuthService,
+    inventarioRepository: inventarioRepo,
     setCurrentAuthToken: (token?: string) => {
       currentAuthToken = token;
     },
