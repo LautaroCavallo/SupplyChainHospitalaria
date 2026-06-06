@@ -1,6 +1,6 @@
 import prisma from '../prisma-client';
 import { IMovimientoStockRepository, FiltrosMovimiento, CreateMovimientoData } from '../../../domain/repositories/IMovimientoStockRepository';
-import { MovimientoStock } from '../../../domain/entities/MovimientoStock';
+import { MovimientoStock, TipoMovimiento } from '../../../domain/entities/MovimientoStock';
 
 export class PrismaMovimientoStockRepository implements IMovimientoStockRepository {
   private toEntity(raw: any): MovimientoStock {
@@ -27,6 +27,17 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
     });
 
     return data.map(this.toEntity);
+  }
+
+  async existsByTipoAndReferencia(tipo: TipoMovimiento, referencia: string): Promise<boolean> {
+    const count = await prisma.movimientoStock.count({
+      where: {
+        tipo,
+        referencia,
+      },
+    });
+
+    return count > 0;
   }
 
   async create(data: CreateMovimientoData): Promise<MovimientoStock> {

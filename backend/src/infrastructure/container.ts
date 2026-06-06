@@ -81,7 +81,7 @@ export function createContainer() {
   const listarSolicitudesCompra = new ListarSolicitudesCompra(solicitudCompraRepo);
   const crearSolicitudCompra = new CrearSolicitudCompra(solicitudCompraRepo, inventarioRepo);
 
-  const validarReceta = new ValidarReceta(recetaService);
+  const validarReceta = new ValidarReceta(recetaService, movimientoRepo);
   const consumirReceta = new ConsumirReceta(recetaService, inventarioRepo, movimientoRepo);
 
   return {

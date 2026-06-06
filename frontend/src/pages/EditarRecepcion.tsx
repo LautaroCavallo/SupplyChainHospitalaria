@@ -7,6 +7,7 @@ import { getProveedores } from '../api/proveedores';
 import { getInventario, getProductoPorEan } from '../api/inventario';
 import type { Proveedor, ProductoInventario, RecepcionDetalle } from '../types';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import ConfirmModal from '../components/common/ConfirmModal';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 interface DetalleRow extends RecepcionDetalle {
@@ -520,32 +521,16 @@ export default function EditarRecepcion() {
         </div>
       )}
 
-      {confirmModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="font-serif text-2xl font-bold text-gray-900">Confirmar recepción</h2>
-            <p className="mt-2 text-sm text-gray-500">
-              Esta acción guardará el borrador, confirmará la recepción e ingresará los medicamentos al stock.
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setConfirmModalOpen(false)}
-                className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmar}
-                disabled={saving}
-                className="rounded-xl bg-brand px-5 py-2 text-sm font-semibold text-white hover:bg-brand-light disabled:opacity-50"
-              >
-                {saving ? <Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> : null}
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        isOpen={confirmModalOpen}
+        title="Confirmar recepción"
+        description="Esta acción guardará el borrador, confirmará la recepción e ingresará los medicamentos al stock."
+        confirmLabel="Confirmar"
+        cancelLabel="Cancelar"
+        loading={saving}
+        onConfirm={handleConfirmar}
+        onCancel={() => setConfirmModalOpen(false)}
+      />
     </div>
   );
 }

@@ -23,4 +23,5 @@ export interface IMovimientoStockRepository {
   findByProductoId(productoId: string, filtros?: FiltrosMovimiento): Promise<MovimientoStock[]>;
   create(data: CreateMovimientoData): Promise<MovimientoStock>;
   findAll(filtros?: FiltrosMovimiento): Promise<MovimientoStock[]>;
+  existsByTipoAndReferencia(tipo: TipoMovimiento, referencia: string): Promise<boolean>;
 }

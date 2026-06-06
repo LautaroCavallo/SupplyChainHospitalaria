@@ -7,6 +7,8 @@ export interface RecetaValidacion {
   medicoNombre: string;
   items: RecetaItem[];
   errores: string[];
+  consumida: boolean;
+  estado: 'Activa' | 'Consumida' | 'Vencida';
 }
 
 export interface RecetaItem {

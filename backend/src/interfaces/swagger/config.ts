@@ -185,6 +185,164 @@ const options: swaggerJsdoc.Options = {
             details: { type: 'array', items: { type: 'object' } },
           },
         },
+        RecetaItem: {
+          type: 'object',
+          properties: {
+            productoId: { type: 'string' },
+            nombre: { type: 'string' },
+            medicamento: { type: 'string', nullable: true },
+            cantidad: { type: 'integer' },
+            indicaciones: { type: 'string', nullable: true },
+          },
+        },
+        RecetaValidacion: {
+          type: 'object',
+          properties: {
+            recetaId: { type: 'string' },
+            valida: { type: 'boolean' },
+            pacienteId: { type: 'string' },
+            pacienteNombre: { type: 'string' },
+            medicoId: { type: 'string' },
+            medicoNombre: { type: 'string' },
+            items: { type: 'array', items: { $ref: '#/components/schemas/RecetaItem' } },
+            errores: { type: 'array', items: { type: 'string' } },
+            consumida: { type: 'boolean' },
+            estado: { type: 'string', enum: ['Activa', 'Consumida', 'Vencida'] },
+          },
+        },
+        RecetaConsumoItem: {
+          type: 'object',
+          properties: {
+            productoId: { type: 'string' },
+            loteId: { type: 'string', nullable: true },
+            cantidad: { type: 'integer' },
+          },
+          required: ['productoId', 'cantidad'],
+        },
+        RecetaConsumoRequest: {
+          type: 'object',
+          properties: {
+            items: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/RecetaConsumoItem' },
+            },
+          },
+          required: ['items'],
+        },
+        RecetaConsumoResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            message: { type: 'string' },
+          },
+        },
+      },
+    },
+    paths: {
+      '/recetas/{id}/validar': {
+        post: {
+          tags: ['Recetas'],
+          summary: 'Validar una receta médica',
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: 'Identificador de la receta a validar',
+            },
+          ],
+          requestBody: {
+            description: 'No requiere body, solo el ID de receta en la ruta',
+            required: false,
+          },
+          responses: {
+            '200': {
+              description: 'Receta validada correctamente',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: { $ref: '#/components/schemas/RecetaValidacion' },
+                    },
+                  },
+                },
+              },
+            },
+            '400': {
+              description: 'Solicitud inválida o datos de receta incorrectos',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/ErrorResponse' },
+                },
+              },
+            },
+            '404': {
+              description: 'Receta no encontrada',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/ErrorResponse' },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/recetas/{id}/consumir': {
+        post: {
+          tags: ['Recetas'],
+          summary: 'Consumir una receta médica y generar el movimiento de stock',
+          parameters: [
+            {
+              name: 'id',
+              in: 'path',
+              required: true,
+              schema: { type: 'string' },
+              description: 'Identificador de la receta a consumir',
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/RecetaConsumoRequest' },
+                example: {
+                  items: [
+                    { productoId: 'uuid-del-producto', loteId: 'uuid-del-lote', cantidad: 2 },
+                  ],
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Receta consumida exitosamente',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/RecetaConsumoResponse' },
+                },
+              },
+            },
+            '400': {
+              description: 'Solicitud inválida o validación de receta fallida',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/ErrorResponse' },
+                },
+              },
+            },
+            '404': {
+              description: 'Receta no encontrada',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/ErrorResponse' },
+                },
+              },
+            },
+          },
+        },
       },
     },
     security: [{ bearerAuth: [] }],

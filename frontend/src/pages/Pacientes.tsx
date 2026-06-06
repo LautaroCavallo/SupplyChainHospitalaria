@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { FileText, QrCode, CheckCircle2, Loader2 } from 'lucide-react';
 import { validarReceta, registrarConsumo } from '../api/pacientes';
 import type { RecetaDetalle } from '../types';
+import ConfirmModal from '../components/common/ConfirmModal';
 import QRScannerModal from '../components/pacientes/QRScannerModal';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import { applySortDirection, compareNumber, compareText, nextSortDirection } from '../utils/sort';
@@ -17,6 +18,7 @@ export default function Pacientes() {
   const [savingConsumo, setSavingConsumo] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [confirmConsumoOpen, setConfirmConsumoOpen] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
     key: 'medicamento',
     direction: 'asc',
@@ -33,8 +35,18 @@ export default function Pacientes() {
       setReceta(result);
       setRecetaId(idToUse);
       setConsumos(Object.fromEntries(result.items.map((item, index) => [index, item.cantAutorizada])));
-    } catch {
-      setError('Receta no encontrada o inválida');
+
+      if (!result.valida) {
+        const message = result.errores?.length
+          ? result.errores.join('; ')
+          : result.estado === 'Vencida'
+            ? `La receta ${idToUse} es inválida porque está vencida`:
+            `La receta ${idToUse} no es válida`;
+        setError(message);
+      }
+    } catch (err: any) {
+      const backendMessage = err?.response?.data?.error || err?.message;
+      setError(backendMessage || 'Receta no encontrada o inválida');
       setReceta(null);
     } finally {
       setLoading(false);
@@ -50,20 +62,37 @@ export default function Pacientes() {
     handleValidar(extracted);
   };
 
+  const handleOpenConfirmConsumo = () => {
+    if (!receta || receta.consumida) return;
+    setConfirmConsumoOpen(true);
+  };
+
   const handleRegistrarConsumo = async () => {
-    if (!receta) return;
+    if (!receta || receta.consumida) return;
+    setConfirmConsumoOpen(false);
+
     try {
       setSavingConsumo(true);
+      setError(null);
+      setSuccessMsg(null);
+
       const items = receta.items
         .map((item, i) => ({
           medicamento: item.medicamento,
           cantConsumo: consumos[i] ?? item.cantConsumida,
         }))
         .filter((item) => item.cantConsumo > 0);
+
       await registrarConsumo(receta.id, items);
       setSuccessMsg('Consumo registrado exitosamente');
-    } catch {
-      setError('Error al registrar el consumo');
+      setReceta((current) => current ? { ...current, consumida: true, estado: 'Consumida' } : current);
+    } catch (err: any) {
+      const backendMessage = err?.response?.data?.error || err?.message;
+      const detailMessages = Array.isArray(err?.response?.data?.details)
+        ? err.response.data.details.map((d: any) => d.mensaje).join('; ')
+        : null;
+
+      setError(detailMessages || backendMessage || 'Error al registrar el consumo');
     } finally {
       setSavingConsumo(false);
     }
@@ -231,8 +260,8 @@ export default function Pacientes() {
 
             <div className="mt-6 flex justify-end">
               <button
-                onClick={handleRegistrarConsumo}
-                disabled={savingConsumo}
+                onClick={handleOpenConfirmConsumo}
+                disabled={savingConsumo || receta.consumida}
                 className="flex items-center gap-2 rounded-xl bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-light disabled:opacity-60"
               >
                 {savingConsumo ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -257,6 +286,17 @@ export default function Pacientes() {
         isOpen={qrScannerOpen}
         onClose={() => setQrScannerOpen(false)}
         onScan={handleQRScan}
+      />
+
+      <ConfirmModal
+        isOpen={confirmConsumoOpen}
+        title="Confirmar consignación"
+        description="¿Confirmar la dispensación de esta receta? Una vez confirmada no podrá volver a dispensarse."
+        confirmLabel="Registrar consumo"
+        cancelLabel="Cancelar"
+        loading={savingConsumo}
+        onConfirm={handleRegistrarConsumo}
+        onCancel={() => setConfirmConsumoOpen(false)}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Info, BarChart2, DollarSign, MoreHorizontal, Loader2, Trash2 } from 'lucide-react';
-import { crearMedicamento, actualizarMedicamento } from '../../api/medicamentos';
+import { crearMedicamento, actualizarMedicamento, eliminarMedicamento } from '../../api/medicamentos';
+import ConfirmModal from '../common/ConfirmModal';
 import type { MedicamentoListItem } from '../../types';
 
 interface Props {
@@ -27,6 +28,8 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
   const [observaciones, setObservaciones] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (medicamento) {
@@ -137,6 +140,21 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
                       placeholder="Ej: Caja x 16 comp." className={inputCls} />
                   </div>
                 </div>
+                <ConfirmModal
+                  isOpen={confirmOpen}
+                  title="Eliminar medicamento"
+                  description="¿Está seguro que desea eliminar este medicamento? Esta acción no se puede deshacer."
+                  confirmLabel="Eliminar"
+                  cancelLabel="Cancelar"
+                  loading={deleting}
+                  onConfirm={async () => {
+                    if (!medicamento) return;
+                    try { setDeleting(true); await eliminarMedicamento(medicamento.id); onClose(); }
+                    catch { setError('Error al eliminar el medicamento'); }
+                    finally { setDeleting(false); setConfirmOpen(false); }
+                  }}
+                  onCancel={() => setConfirmOpen(false)}
+                />
               </div>
             </div>
 
@@ -234,7 +252,7 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-gray-200 bg-gray-100/60 px-8 py-4">
-          <button className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700">
+          <button onClick={() => setConfirmOpen(true)} className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-700">
             <Trash2 className="h-4 w-4" />
             Eliminar medicamento
           </button>

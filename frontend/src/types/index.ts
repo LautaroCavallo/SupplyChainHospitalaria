@@ -265,6 +265,8 @@ export interface RecetaDetalle {
   fecha: string;
   estado: 'Activa' | 'Consumida' | 'Vencida';
   consumida: boolean;
+  valida: boolean;
+  errores?: string[];
   medicoNombre: string;
   medicoMatricula: string;
   medicoEspecialidad: string;

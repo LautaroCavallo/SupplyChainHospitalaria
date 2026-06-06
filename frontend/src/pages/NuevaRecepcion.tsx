@@ -5,6 +5,7 @@ import { getProveedores } from '../api/proveedores';
 import { crearRecepcion, confirmarRecepcion, procesarRecepcion } from '../api/recepciones';
 import { getInventario } from '../api/inventario';
 import type { Proveedor, ProductoInventario } from '../types';
+import ConfirmModal from '../components/common/ConfirmModal';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
@@ -38,6 +39,7 @@ export default function NuevaRecepcion() {
   const [rows, setRows] = useState<DetalleRow[]>([emptyRow(1)]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const nextKey = useRef(2);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
     key: 'nombreProducto',
@@ -149,8 +151,14 @@ export default function NuevaRecepcion() {
     } catch { setError('Error al guardar el borrador'); } finally { setSaving(false); }
   };
 
+  const handleOpenConfirm = () => {
+    if (!validate()) return;
+    setConfirmModalOpen(true);
+  };
+
   const handleConfirmAndProcess = async () => {
     if (!validate()) return;
+    setConfirmModalOpen(false);
     try {
       setSaving(true); setError(null);
       const recepcion = await crearRecepcion(buildPayload());
@@ -323,13 +331,24 @@ export default function NuevaRecepcion() {
             {saving ? <Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> : null}
             Guardar borrador
           </button>
-          <button onClick={handleConfirmAndProcess} disabled={saving}
+          <button onClick={handleOpenConfirm} disabled={saving}
             className="rounded-xl bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-light disabled:opacity-50">
             {saving ? <Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> : null}
             Confirmar e ingresar al stock
           </button>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModalOpen}
+        title="Confirmar recepción"
+        description="Esta acción guardará el borrador, confirmará la recepción e ingresará los medicamentos al stock."
+        confirmLabel="Confirmar"
+        cancelLabel="Cancelar"
+        loading={saving}
+        onConfirm={handleConfirmAndProcess}
+        onCancel={() => setConfirmModalOpen(false)}
+      />
     </div>
   );
 }

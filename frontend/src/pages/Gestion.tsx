@@ -4,6 +4,7 @@ import { getMedicamentos, getMedicamentosSummary, eliminarMedicamento } from '..
 import { getProveedores, eliminarProveedor } from '../api/proveedores';
 import type { MedicamentoListItem, Proveedor, PaginatedResponse } from '../types';
 import Badge from '../components/common/Badge';
+import ConfirmModal from '../components/common/ConfirmModal';
 import Pagination from '../components/common/Pagination';
 import MedicamentoModal from '../components/gestion/MedicamentoModal';
 import ProveedorDetalleModal from '../components/gestion/ProveedorDetalleModal';
@@ -79,13 +80,28 @@ export default function Gestion() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleDeleteMed = async (id: string) => {
-    if (!confirm('¿Eliminar este medicamento?')) return;
-    try { await eliminarMedicamento(id); fetchData(); } catch { /* ignore */ }
+    setConfirmDeleteMedId(id);
+    setConfirmDeleteMedOpen(true);
   };
 
   const handleDeleteProv = async (id: string) => {
-    if (!confirm('¿Eliminar este proveedor?')) return;
-    try { await eliminarProveedor(id); fetchData(); } catch { /* ignore */ }
+    setConfirmDeleteProvId(id);
+    setConfirmDeleteProvOpen(true);
+  };
+
+  const [confirmDeleteMedOpen, setConfirmDeleteMedOpen] = useState(false);
+  const [confirmDeleteMedId, setConfirmDeleteMedId] = useState<string | null>(null);
+  const [confirmDeleteProvOpen, setConfirmDeleteProvOpen] = useState(false);
+  const [confirmDeleteProvId, setConfirmDeleteProvId] = useState<string | null>(null);
+
+  const handleConfirmDeleteMed = async () => {
+    if (!confirmDeleteMedId) return;
+    try { await eliminarMedicamento(confirmDeleteMedId); fetchData(); } catch { /* ignore */ } finally { setConfirmDeleteMedOpen(false); setConfirmDeleteMedId(null); }
+  };
+
+  const handleConfirmDeleteProv = async () => {
+    if (!confirmDeleteProvId) return;
+    try { await eliminarProveedor(confirmDeleteProvId); fetchData(); } catch { /* ignore */ } finally { setConfirmDeleteProvOpen(false); setConfirmDeleteProvId(null); }
   };
 
   const sortedMedicamentos = useMemo(() => {
@@ -364,6 +380,26 @@ export default function Gestion() {
       <MedicamentoModal isOpen={medModal} onClose={() => { setMedModal(false); setEditMed(null); fetchData(); }} medicamento={editMed} />
       <ProveedorDetalleModal isOpen={provModal} onClose={() => { setProvModal(false); setSelectedProv(null); }} proveedor={selectedProv} />
       <ProveedorFormModal isOpen={nuevoProvModal} onClose={() => { setNuevoProvModal(false); fetchData(); }} />
+      <ConfirmModal
+        isOpen={confirmDeleteMedOpen}
+        title="Eliminar medicamento"
+        description="¿Está seguro que desea eliminar este medicamento? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        loading={false}
+        onConfirm={handleConfirmDeleteMed}
+        onCancel={() => { setConfirmDeleteMedOpen(false); setConfirmDeleteMedId(null); }}
+      />
+      <ConfirmModal
+        isOpen={confirmDeleteProvOpen}
+        title="Eliminar proveedor"
+        description="¿Está seguro que desea eliminar este proveedor? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        loading={false}
+        onConfirm={handleConfirmDeleteProv}
+        onCancel={() => { setConfirmDeleteProvOpen(false); setConfirmDeleteProvId(null); }}
+      />
     </div>
   );
 }

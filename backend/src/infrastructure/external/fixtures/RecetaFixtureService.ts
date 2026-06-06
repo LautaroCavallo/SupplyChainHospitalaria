@@ -27,6 +27,8 @@ export class RecetaFixtureService implements IRecetaService {
         },
       ],
       errores: [],
+      consumida: false,
+      estado: 'Activa',
     },
     '8503': {
       recetaId: '8503',
@@ -44,7 +46,29 @@ export class RecetaFixtureService implements IRecetaService {
           indicaciones: 'Tomar 1 comprimido cada 8 horas.',
         },
       ],
-      errores: ['La receta está suspendida en HCE'],
+      errores: ['La receta está vencida'],
+      consumida: false,
+      estado: 'Vencida',
+    },
+    '8504': {
+      recetaId: '8504',
+      valida: true,
+      pacienteId: '10502',
+      pacienteNombre: 'Lucía Fernández',
+      medicoId: '304',
+      medicoNombre: 'Dr. Andrés Martín',
+      items: [
+        {
+          productoId: '',
+          nombre: 'Amoxicilina 500mg',
+          medicamento: 'Amoxicilina 500mg',
+          cantidad: 2,
+          indicaciones: 'Tomar 1 comprimido cada 8 horas por 7 días.',
+        },
+      ],
+      errores: [],
+      consumida: false,
+      estado: 'Activa',
     },
   };
 

@@ -50,6 +50,7 @@ export class HceRecetaService implements IRecetaService {
       errores.push('La receta contiene alertas clínicas activas');
     }
 
+    const consumida = receta.estado === 'Dispensada';
     return {
       recetaId: String(receta.id_receta),
       valida: receta.estado === 'Activa' && errores.length === 0,
@@ -65,6 +66,8 @@ export class HceRecetaService implements IRecetaService {
         indicaciones: item.indicaciones ?? undefined,
       })),
       errores,
+      consumida,
+      estado: consumida ? 'Consumida' : receta.estado === 'Activa' ? 'Activa' : 'Vencida',
     };
   }
 

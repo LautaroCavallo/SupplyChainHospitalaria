@@ -8,6 +8,7 @@ interface ItemReceta {
   medicamento?: string;
   cantidad?: number;
   cantConsumo?: number;
+  loteId?: string;
 }
 
 export class ConsumirReceta {
@@ -23,47 +24,89 @@ export class ConsumirReceta {
       throw new ValidationError(`La receta ${recetaId} no es válida`);
     }
 
-    for (const item of items) {
+    const yaConsumida = await this.movimientoRepository.existsByTipoAndReferencia(
+      'CONSUMO_RECETA',
+      recetaId,
+    );
+
+    if (yaConsumida) {
+      throw new ValidationError('La receta ya fue dispensada.');
+    }
+
+    const errors: string[] = [];
+    const consumoItems: Array<{ productoId: string; loteId?: string; cantidad: number }> = [];
+
+    for (const [index, item] of items.entries()) {
       const cantidad = item.cantidad ?? item.cantConsumo ?? 0;
       if (cantidad <= 0) {
         continue;
       }
 
+      const itemLabel = item.medicamento ?? item.productoId ?? `ítem ${index + 1}`;
       const producto = item.productoId
         ? await this.inventarioRepository.findById(item.productoId)
         : (await this.inventarioRepository.findByGenerico(item.medicamento ?? ''))
             .find((p) => p.stockActual >= cantidad);
 
       if (!producto) {
-        throw new ValidationError(`No hay producto comercial disponible para ${item.medicamento ?? item.productoId}`);
+        errors.push(`No hay producto comercial disponible para ${itemLabel}`);
+        continue;
+      }
+
+      if (producto.stockActual <= 0) {
+        errors.push(`No hay stock disponible para ${producto.nombre} (pedido: ${cantidad})`);
+        continue;
       }
 
       if (producto.stockActual < cantidad) {
-        throw new ValidationError(
-          `Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stockActual}, solicitado: ${cantidad}`,
+        errors.push(
+          `Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stockActual}, solicitado: ${cantidad}. Puede dispensar ${producto.stockActual}.`,
         );
+        continue;
+      }
+
+      consumoItems.push({
+        productoId: producto.id,
+        loteId: item.loteId,
+        cantidad,
+      });
+    }
+
+    if (errors.length > 0) {
+      throw new ValidationError(errors.join('; '));
+    }
+
+    if (consumoItems.length === 0) {
+      throw new ValidationError('No hay ítems válidos para consumir en la receta.');
+    }
+
+    const resultadoConsumo = await this.recetaService.consumirReceta(recetaId, consumoItems);
+
+    if (!resultadoConsumo.exitoso || resultadoConsumo.errores.length > 0) {
+      const mensaje = resultadoConsumo.errores.length > 0
+        ? resultadoConsumo.errores.join('; ')
+        : `No se pudo consumir la receta ${recetaId}`;
+      throw new ValidationError(mensaje);
+    }
+
+    for (const item of consumoItems) {
+      const producto = await this.inventarioRepository.findById(item.productoId);
+      if (!producto) {
+        throw new ValidationError(`Producto no encontrado en inventario para ${item.productoId}`);
       }
 
       await this.inventarioRepository.updateStock(
         producto.id,
-        producto.stockActual - cantidad,
+        producto.stockActual - item.cantidad,
       );
 
       await this.movimientoRepository.create({
         productoId: producto.id,
         tipo: 'CONSUMO_RECETA',
-        cantidad,
-        motivo: `Consumo por receta ${recetaId}${item.medicamento ? ` (${item.medicamento})` : ''}`,
+        cantidad: item.cantidad,
+        motivo: `Consumo por receta ${recetaId}`,
         referencia: recetaId,
       });
     }
-
-    await this.recetaService.consumirReceta(
-      recetaId,
-      items.map((item) => ({
-        productoId: item.productoId ?? item.medicamento ?? '',
-        cantidad: item.cantidad ?? item.cantConsumo ?? 0,
-      })),
-    );
   }
 }
