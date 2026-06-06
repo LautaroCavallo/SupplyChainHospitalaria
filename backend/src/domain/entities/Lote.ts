@@ -1,4 +1,4 @@
-export type EstadoLote = 'VIGENTE' | 'PROXIMO_A_VENCER' | 'VENCIDO';
+export type EstadoLote = 'VIGENTE' | 'PROXIMO_A_VENCER' | 'VENCIDO' | 'AGOTADO';
 
 export class Lote {
   readonly id: string;
@@ -45,6 +45,7 @@ export class Lote {
   }
 
   calcularEstado(): EstadoLote {
+    if (this.stockDisponible <= 0) return 'AGOTADO';
     if (this.isVencido()) return 'VENCIDO';
     if (this.isProximoAVencer()) return 'PROXIMO_A_VENCER';
     return 'VIGENTE';

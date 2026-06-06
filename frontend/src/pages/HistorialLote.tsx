@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, ChevronRight, Loader2 } from 'lucide-react';
+import { Calendar, ChevronRight, Loader2, X } from 'lucide-react';
 import { getHistorialLote, getProducto, getLotes } from '../api/inventario';
 import type { MovimientoLote, PaginatedResponse, TipoMovimiento } from '../types';
 import Badge from '../components/common/Badge';
@@ -52,6 +52,8 @@ export default function HistorialLote() {
   const [tipoFilter, setTipoFilter] = useState('');
   const [fechaDesde, setFechaDesde] = useState('');
   const [fechaHasta, setFechaHasta] = useState('');
+  const [draftFechaDesde, setDraftFechaDesde] = useState('');
+  const [draftFechaHasta, setDraftFechaHasta] = useState('');
   const [loading, setLoading] = useState(true);
   const [nombreMedicamento, setNombreMedicamento] = useState('');
   const [numeroLote, setNumeroLote] = useState('');
@@ -102,6 +104,20 @@ export default function HistorialLote() {
     setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
   };
 
+  const applyDateFilter = () => {
+    setFechaDesde(draftFechaDesde);
+    setFechaHasta(draftFechaHasta);
+    setPage(1);
+  };
+
+  const clearDateFilter = () => {
+    setDraftFechaDesde('');
+    setDraftFechaHasta('');
+    setFechaDesde('');
+    setFechaHasta('');
+    setPage(1);
+  };
+
   return (
     <div>
       {/* Breadcrumb */}
@@ -143,22 +159,40 @@ export default function HistorialLote() {
         ))}
         <div className="ml-auto flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">
           <Calendar className="h-4 w-4 text-gray-400" />
-          <input
-            type="date"
-            value={fechaDesde}
-            onChange={(e) => { setFechaDesde(e.target.value); setPage(1); }}
-            className="h-7 bg-transparent text-sm text-gray-600 focus:outline-none"
-            aria-label="Fecha desde"
-          />
-          <span className="text-gray-300">-</span>
-          <input
-            type="date"
-            value={fechaHasta}
-            min={fechaDesde || undefined}
-            onChange={(e) => { setFechaHasta(e.target.value); setPage(1); }}
-            className="h-7 bg-transparent text-sm text-gray-600 focus:outline-none"
-            aria-label="Fecha hasta"
-          />
+          <label className="flex items-center gap-1 text-xs text-gray-400">
+            Desde
+            <input
+              type="date"
+              value={draftFechaDesde}
+              onChange={(e) => setDraftFechaDesde(e.target.value)}
+              className="h-7 rounded-lg border border-gray-100 bg-white px-2 text-sm text-gray-600 focus:border-brand focus:outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-1 text-xs text-gray-400">
+            Hasta
+            <input
+              type="date"
+              value={draftFechaHasta}
+              min={draftFechaDesde || undefined}
+              onChange={(e) => setDraftFechaHasta(e.target.value)}
+              className="h-7 rounded-lg border border-gray-100 bg-white px-2 text-sm text-gray-600 focus:border-brand focus:outline-none"
+            />
+          </label>
+          <button
+            onClick={applyDateFilter}
+            className="h-7 rounded-lg bg-brand px-3 text-xs font-semibold text-white hover:bg-brand-light"
+          >
+            Aplicar
+          </button>
+          {(fechaDesde || fechaHasta) && (
+            <button
+              onClick={clearDateFilter}
+              title="Limpiar fechas"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 

@@ -79,7 +79,7 @@ const options: swaggerJsdoc.Options = {
             fechaVencimiento: { type: 'string', format: 'date-time' },
             stockDisponible: { type: 'integer' },
             stockInicial: { type: 'integer' },
-            estado: { type: 'string', enum: ['VIGENTE', 'VENCIDO', 'AGOTADO'] },
+            estado: { type: 'string', enum: ['VIGENTE', 'PROXIMO_A_VENCER', 'VENCIDO', 'AGOTADO'] },
           },
         },
         MovimientoStock: {

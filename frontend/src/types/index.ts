@@ -9,7 +9,7 @@ export type CategoriaProducto =
   | 'REACTIVO'
   | 'OTRO';
 
-export type EstadoLote = 'VIGENTE' | 'PROXIMO_A_VENCER' | 'VENCIDO';
+export type EstadoLote = 'VIGENTE' | 'PROXIMO_A_VENCER' | 'VENCIDO' | 'AGOTADO';
 
 export type EstadoRecepcion = 'BORRADOR' | 'CONFIRMADA' | 'PROCESADA';
 

@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import Modal from '../common/Modal';
-import type { ProductoInventario } from '../../types';
+import type { Lote, ProductoInventario } from '../../types';
 
 interface AjusteStockModalProps {
   isOpen: boolean;
   onClose: () => void;
   producto: ProductoInventario | null;
-  onConfirm: (data: { tipo: string; cantidad: number; motivo: string }) => Promise<void>;
+  lote?: Lote | null;
+  onConfirm: (data: { tipo: string; cantidad: number; motivo: string; loteId?: string }) => Promise<void>;
 }
 
 const motivos = [
@@ -17,7 +18,7 @@ const motivos = [
   'Otro',
 ];
 
-export default function AjusteStockModal({ isOpen, onClose, producto, onConfirm }: AjusteStockModalProps) {
+export default function AjusteStockModal({ isOpen, onClose, producto, lote, onConfirm }: AjusteStockModalProps) {
   const [tipo, setTipo] = useState<'INCREMENTO' | 'DECREMENTO'>('INCREMENTO');
   const [cantidad, setCantidad] = useState(0);
   const [motivo, setMotivo] = useState(motivos[0]);
@@ -32,7 +33,7 @@ export default function AjusteStockModal({ isOpen, onClose, producto, onConfirm 
     try {
       setSaving(true);
       setError(null);
-      await onConfirm({ tipo, cantidad, motivo });
+      await onConfirm({ tipo, cantidad, motivo, loteId: lote?.id });
       setCantidad(0);
       setTipo('INCREMENTO');
       setMotivo(motivos[0]);
@@ -52,6 +53,11 @@ export default function AjusteStockModal({ isOpen, onClose, producto, onConfirm 
             <p className="text-sm text-gray-500">Producto</p>
             <p className="font-medium text-gray-900">{producto.nombre}</p>
             <p className="text-xs text-gray-400">Stock actual: {producto.stockActual} {producto.unidad}</p>
+            {lote && (
+              <p className="mt-1 text-xs text-gray-500">
+                Lote {lote.numeroLote}: {lote.stockDisponible} ud disponibles
+              </p>
+            )}
           </div>
         ) : (
           <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">

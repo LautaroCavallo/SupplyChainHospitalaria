@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronRight, History, AlertTriangle, Loader2 } from 'lucide-react';
-import { getProducto, getLotes } from '../api/inventario';
+import { ChevronRight, History, AlertTriangle, Loader2, SlidersHorizontal } from 'lucide-react';
+import { ajustarStock, getProducto, getLotes } from '../api/inventario';
 import type { ProductoInventario, Lote, NivelStock, EstadoLote } from '../types';
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import AjusteStockModal from '../components/inventario/AjusteStockModal';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 function formatDate(d: string): string {
@@ -30,10 +31,11 @@ const nivelBadge: Record<NivelStock, { label: string; variant: 'success' | 'warn
   SIN_STOCK: { label: 'SIN STOCK',       variant: 'danger' },
 };
 
-const estadoLoteBadge: Record<EstadoLote, { label: string; variant: 'success' | 'warning' | 'danger' }> = {
+const estadoLoteBadge: Record<EstadoLote, { label: string; variant: 'success' | 'warning' | 'danger' | 'default' }> = {
   VIGENTE:          { label: 'VIGENTE',           variant: 'success' },
   PROXIMO_A_VENCER: { label: 'PRÓXIMO A VENCER',  variant: 'warning' },
   VENCIDO:          { label: 'VENCIDO',            variant: 'danger' },
+  AGOTADO:          { label: 'AGOTADO',            variant: 'default' },
 };
 
 const estadoFilterOptions: { label: string; value: string }[] = [
@@ -41,6 +43,7 @@ const estadoFilterOptions: { label: string; value: string }[] = [
   { label: 'Vigente', value: 'VIGENTE' },
   { label: 'Próximo a vencer', value: 'PROXIMO_A_VENCER' },
   { label: 'Vencido', value: 'VENCIDO' },
+  { label: 'Agotado', value: 'AGOTADO' },
 ];
 
 const LIMIT = 10;
@@ -50,6 +53,7 @@ const estadoLoteSortOrder: Record<EstadoLote, number> = {
   VIGENTE: 0,
   PROXIMO_A_VENCER: 1,
   VENCIDO: 2,
+  AGOTADO: 3,
 };
 
 export default function InventarioDetalle() {
@@ -61,6 +65,8 @@ export default function InventarioDetalle() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ajusteModal, setAjusteModal] = useState(false);
+  const [selectedLote, setSelectedLote] = useState<Lote | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
     key: 'fechaVencimiento',
     direction: 'asc',
@@ -107,6 +113,12 @@ export default function InventarioDetalle() {
 
   const handleSort = (key: SortKey) => {
     setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
+
+  const handleAjusteLote = async (ajusteData: { tipo: string; cantidad: number; motivo: string; loteId?: string }) => {
+    if (!id || !selectedLote) return;
+    await ajustarStock(id, { ...ajusteData, loteId: selectedLote.id });
+    await fetchData();
   };
 
   if (loading) {
@@ -248,7 +260,14 @@ export default function InventarioDetalle() {
                     <Badge label={badge.label} variant={badge.variant} />
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center justify-end">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => { setSelectedLote(lote); setAjusteModal(true); }}
+                        title="Ajustar lote"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
+                      >
+                        <SlidersHorizontal className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => navigate(`/inventario/${id}/lotes/${lote.id}/historial`)}
                         title="Ver historial"
@@ -277,6 +296,13 @@ export default function InventarioDetalle() {
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       </div>
+      <AjusteStockModal
+        isOpen={ajusteModal}
+        onClose={() => { setAjusteModal(false); setSelectedLote(null); }}
+        producto={producto}
+        lote={selectedLote}
+        onConfirm={handleAjusteLote}
+      />
     </div>
   );
 }

@@ -47,7 +47,7 @@ export class ObtenerHistorialLote {
         tipo: movimiento.tipo,
         cantidad: movimiento.cantidad,
         motivo: movimiento.motivo,
-        responsable: movimiento.usuarioId,
+        responsable: movimiento.usuarioId ?? 'Sistema',
         createdAt: movimiento.createdAt,
       })),
       total,

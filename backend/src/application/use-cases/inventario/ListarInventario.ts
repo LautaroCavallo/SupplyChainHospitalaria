@@ -12,12 +12,15 @@ export class ListarInventario {
   constructor(private readonly inventarioRepository: IInventarioRepository) {}
 
   async execute(filtros: FiltroInventarioDTO): Promise<ResultadoPaginadoDTO<ProductoInventarioResponseDTO>> {
-    const [data, total] = await Promise.all([
-      this.inventarioRepository.findAll(filtros as any),
-      this.inventarioRepository.count(filtros as any),
-    ]);
+    const { estado, page, limit, ...repoFiltros } = filtros;
+    const productos = await this.inventarioRepository.findAll({
+      ...repoFiltros,
+      nivelStock: estado as any,
+      page: 1,
+      limit: 10000,
+    } as any);
 
-    const mapped = data.map((producto) => ({
+    const mapped = productos.map((producto) => ({
       id: producto.id,
       nombre: producto.nombre,
       descripcion: producto.descripcion ?? null,
@@ -44,13 +47,15 @@ export class ListarInventario {
       estado: calcularEstado(producto.stockActual, producto.stockMinimo, producto.stockCritico),
       activo: producto.activo,
     }));
+    const start = (page - 1) * limit;
+    const data = mapped.slice(start, start + limit);
 
     return {
-      data: mapped,
-      total,
-      page: filtros.page,
-      limit: filtros.limit,
-      totalPages: Math.ceil(total / filtros.limit),
+      data,
+      total: mapped.length,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(mapped.length / limit)),
     };
   }
 }

@@ -11,7 +11,7 @@ export interface CreateLoteData {
 export interface UpdateLoteData {
   numeroLote?: string;
   fechaVencimiento?: Date;
-  estado?: 'VIGENTE' | 'PROXIMO_A_VENCER' | 'VENCIDO';
+  estado?: 'VIGENTE' | 'PROXIMO_A_VENCER' | 'VENCIDO' | 'AGOTADO';
 }
 
 export interface ILoteRepository {
