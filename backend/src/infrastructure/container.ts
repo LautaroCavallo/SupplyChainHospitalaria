@@ -7,6 +7,7 @@ import { PrismaSolicitudCompraRepository } from './database/repositories/PrismaS
 import { VademecumFixtureService } from './external/fixtures/VademecumFixtureService';
 import { RecetaFixtureService } from './external/fixtures/RecetaFixtureService';
 import { ComprasFixtureService } from './external/fixtures/ComprasFixtureService';
+import { HttpComprasService } from './external/compras/HttpComprasService';
 import { CoreAuthService } from './external/core/CoreAuthService';
 import { HceRecetaService } from './external/hce/HceRecetaService';
 import { config } from '../config';
@@ -35,6 +36,8 @@ import { ConfirmarRecepcion } from '../application/use-cases/recepciones/Confirm
 import { ProcesarRecepcion } from '../application/use-cases/recepciones/ProcesarRecepcion';
 import { ListarSolicitudesCompra } from '../application/use-cases/solicitudes/ListarSolicitudesCompra';
 import { CrearSolicitudCompra } from '../application/use-cases/solicitudes/CrearSolicitudCompra';
+import { EnviarOrdenCompra } from '../application/use-cases/solicitudes/EnviarOrdenCompra';
+import { ConfirmarAdjudicacion } from '../application/use-cases/solicitudes/ConfirmarAdjudicacion';
 import { ValidarReceta } from '../application/use-cases/recetas/ValidarReceta';
 import { ConsumirReceta } from '../application/use-cases/recetas/ConsumirReceta';
 import { ObtenerDashboard } from '../application/use-cases/dashboard/ObtenerDashboard';
@@ -55,7 +58,10 @@ export function createContainer() {
   const recetaService = config.integrations.recetaMode === 'hce' && hceRecetaService.enabled
     ? hceRecetaService
     : new RecetaFixtureService();
-  const _comprasService = new ComprasFixtureService();
+
+  const comprasService = config.integrations.comprasApiUrl
+    ? new HttpComprasService(config.integrations.comprasApiUrl)
+    : new ComprasFixtureService();
 
   const buscarMedicamentos = new BuscarMedicamentos(vademecumService);
   const obtenerMedicamento = new ObtenerMedicamento(vademecumService);
@@ -86,6 +92,8 @@ export function createContainer() {
 
   const listarSolicitudesCompra = new ListarSolicitudesCompra(solicitudCompraRepo);
   const crearSolicitudCompra = new CrearSolicitudCompra(solicitudCompraRepo, inventarioRepo);
+  const enviarOrdenCompra = new EnviarOrdenCompra(solicitudCompraRepo, comprasService);
+  const confirmarAdjudicacion = new ConfirmarAdjudicacion(solicitudCompraRepo);
 
   const validarReceta = new ValidarReceta(recetaService, movimientoRepo);
   const consumirReceta = new ConsumirReceta(recetaService, inventarioRepo, movimientoRepo);
@@ -117,6 +125,9 @@ export function createContainer() {
     procesarRecepcion,
     listarSolicitudesCompra,
     crearSolicitudCompra,
+    enviarOrdenCompra,
+    confirmarAdjudicacion,
+    solicitudCompraRepository: solicitudCompraRepo,
     validarReceta,
     consumirReceta,
     obtenerDashboard,

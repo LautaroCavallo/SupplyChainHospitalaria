@@ -9,7 +9,7 @@ export type {
 } from './IRecetaService';
 export type {
   IComprasService,
-  SolicitudCompraExterna,
-  ItemSolicitudExterna,
+  OrdenCompraPayload,
+  AdjudicacionCallbackDTO,
   ResultadoEnvio,
 } from './IComprasService';

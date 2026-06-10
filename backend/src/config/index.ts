@@ -18,5 +18,7 @@ export const config = {
     externalTimeoutMs: parseInt(process.env.EXTERNAL_TIMEOUT_MS || '8000', 10),
     authMode: process.env.AUTH_MODE || 'mock',
     recetaMode: process.env.RECETA_MODE || 'mock',
+    comprasApiUrl: process.env.COMPRAS_URL || '',
+    comprasUseMock: process.env.COMPRAS_USE_MOCK !== 'false',
   },
 };

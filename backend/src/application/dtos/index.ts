@@ -155,7 +155,8 @@ export interface FiltroRecepcionDTO extends PaginacionDTO {
 export interface CrearSolicitudCompraDTO {
   prioridad?: string;
   motivo?: string;
-  detalles: { productoId: string; cantidadSolicitada: number }[];
+  proveedorSugeridoId?: string;
+  detalles: { productoId: string; cantidadSolicitada: number; unidad?: string }[];
 }
 
 export interface SolicitudCompraResponseDTO {
@@ -163,14 +164,45 @@ export interface SolicitudCompraResponseDTO {
   estado: string;
   prioridad: string;
   motivo?: string | null;
+  ordenCompraId?: string | null;
+  ordenCompraExternaId?: string | null;
+  referenciaExterna?: string | null;
+  proveedorSugeridoId?: string | null;
+  proveedorSugerido?: { id: string; razonSocial: string; cuit: string } | null;
+  proveedorAdjudicadoRazonSocial?: string | null;
+  fechaAprobacion?: Date | null;
+  fechaEntregaEstimada?: Date | null;
+  observaciones?: string | null;
   detalles: {
     id: string;
     productoId: string;
     producto?: { id: string; nombre: string };
     cantidadSolicitada: number;
     cantidadAprobada?: number | null;
+    unidad: string;
+    precioUnitario?: number | null;
   }[];
   createdAt: Date;
+}
+
+export interface ConfirmacionAdjudicacionDTO {
+  aprobado: boolean;
+  referenciaExterna?: string;
+  proveedorAdjudicado?: { razonSocial: string };
+  itemsAdjudicados?: {
+    productoId: string;
+    cantidadAprobada: number;
+    precioUnitario: number;
+  }[];
+  fechaAprobacion?: string;
+  fechaEntregaEstimada?: string;
+  observaciones?: string;
+}
+
+export interface EnviarOrdenCompraResponseDTO {
+  ordenCompraExternaId?: string;
+  estado: string;
+  mensaje: string;
 }
 
 export interface AlertaStockDTO {

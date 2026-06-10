@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Eye, Filter, Download, ShoppingCart, AlertTriangle, Loader2 } from 'lucide-react';
-import { getCompras, getAlertasCompras } from '../api/compras';
+import { Plus, Eye, Filter, Download, ShoppingCart, AlertTriangle, Loader2, Send } from 'lucide-react';
+import { getCompras, getAlertasCompras, enviarOrdenCompra } from '../api/compras';
 import type { SolicitudCompra, AlertaStockCritico, PaginatedResponse } from '../types';
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
@@ -45,6 +45,7 @@ export default function Compras() {
     key: 'fecha',
     direction: 'desc',
   });
+  const [enviando, setEnviando] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -82,6 +83,18 @@ export default function Compras() {
   const handleSort = (key: SortKey) => {
     setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
   };
+
+  const handleEnviarACompras = useCallback(async (id: string) => {
+    try {
+      setEnviando(id);
+      await enviarOrdenCompra(id);
+      await fetchData();
+    } catch {
+      // graceful — el error se puede manejar con un toast en el futuro
+    } finally {
+      setEnviando(null);
+    }
+  }, [fetchData]);
 
   return (
     <div>
@@ -200,7 +213,21 @@ export default function Compras() {
                         <Badge label={badge.label} variant={badge.variant} />
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          {s.estado === 'PENDIENTE' && (
+                            <button
+                              disabled={enviando === s.id}
+                              onClick={() => handleEnviarACompras(s.id)}
+                              title="Enviar a Compras"
+                              className="flex h-8 items-center gap-1.5 rounded-lg bg-brand px-2.5 text-xs font-semibold text-white hover:bg-brand-light disabled:opacity-50"
+                            >
+                              {enviando === s.id
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <Send className="h-3.5 w-3.5" />
+                              }
+                              Enviar
+                            </button>
+                          )}
                           <button
                             onClick={() => { setSelectedSolicitud(s); setVerModal(true); }}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
@@ -242,7 +269,7 @@ export default function Compras() {
       </button>
 
       <NuevaSolicitudModal isOpen={nuevaModal} onClose={() => { setNuevaModal(false); fetchData(); }} />
-      <VerSolicitudModal isOpen={verModal} onClose={() => { setVerModal(false); setSelectedSolicitud(null); }} solicitud={selectedSolicitud} />
+      <VerSolicitudModal isOpen={verModal} onClose={() => { setVerModal(false); setSelectedSolicitud(null); }} solicitud={selectedSolicitud} onRefresh={fetchData} />
     </div>
   );
 }

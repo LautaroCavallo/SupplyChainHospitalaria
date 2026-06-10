@@ -7,6 +7,8 @@ export class SolicitudCompraDetalle {
   readonly productoId: string;
   readonly cantidadSolicitada: number;
   cantidadAprobada?: number;
+  unidad: string;
+  precioUnitario?: number;
 
   constructor(props: {
     id: string;
@@ -14,12 +16,16 @@ export class SolicitudCompraDetalle {
     productoId: string;
     cantidadSolicitada: number;
     cantidadAprobada?: number;
+    unidad?: string;
+    precioUnitario?: number;
   }) {
     this.id = props.id;
     this.solicitudId = props.solicitudId;
     this.productoId = props.productoId;
     this.cantidadSolicitada = props.cantidadSolicitada;
     this.cantidadAprobada = props.cantidadAprobada;
+    this.unidad = props.unidad ?? 'unidad';
+    this.precioUnitario = props.precioUnitario;
   }
 
   validar(): string[] {
@@ -45,6 +51,16 @@ export class SolicitudCompra {
   readonly createdAt: Date;
   updatedAt: Date;
 
+  // Campos OC
+  ordenCompraId?: string;
+  ordenCompraExternaId?: string;
+  referenciaExterna?: string;
+  proveedorSugeridoId?: string;
+  proveedorAdjudicadoRazonSocial?: string;
+  fechaAprobacion?: Date;
+  fechaEntregaEstimada?: Date;
+  observaciones?: string;
+
   constructor(props: {
     id: string;
     estado?: EstadoSolicitud;
@@ -54,6 +70,14 @@ export class SolicitudCompra {
     detalles?: SolicitudCompraDetalle[];
     createdAt?: Date;
     updatedAt?: Date;
+    ordenCompraId?: string;
+    ordenCompraExternaId?: string;
+    referenciaExterna?: string;
+    proveedorSugeridoId?: string;
+    proveedorAdjudicadoRazonSocial?: string;
+    fechaAprobacion?: Date;
+    fechaEntregaEstimada?: Date;
+    observaciones?: string;
   }) {
     this.id = props.id;
     this.estado = props.estado ?? 'PENDIENTE';
@@ -63,29 +87,53 @@ export class SolicitudCompra {
     this.detalles = props.detalles ?? [];
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? new Date();
-  }
-
-  aprobar(): void {
-    if (this.estado !== 'PENDIENTE') {
-      throw new Error('Solo se puede aprobar una solicitud en estado PENDIENTE');
-    }
-    this.estado = 'APROBADA';
-    this.updatedAt = new Date();
-  }
-
-  rechazar(): void {
-    if (this.estado !== 'PENDIENTE') {
-      throw new Error('Solo se puede rechazar una solicitud en estado PENDIENTE');
-    }
-    this.estado = 'RECHAZADA';
-    this.updatedAt = new Date();
+    this.ordenCompraId = props.ordenCompraId;
+    this.ordenCompraExternaId = props.ordenCompraExternaId;
+    this.referenciaExterna = props.referenciaExterna;
+    this.proveedorSugeridoId = props.proveedorSugeridoId;
+    this.proveedorAdjudicadoRazonSocial = props.proveedorAdjudicadoRazonSocial;
+    this.fechaAprobacion = props.fechaAprobacion;
+    this.fechaEntregaEstimada = props.fechaEntregaEstimada;
+    this.observaciones = props.observaciones;
   }
 
   enviar(): void {
-    if (this.estado !== 'APROBADA') {
-      throw new Error('Solo se puede enviar una solicitud en estado APROBADA');
+    if (this.estado !== 'PENDIENTE') {
+      throw new Error('Solo se puede enviar una solicitud en estado PENDIENTE');
     }
     this.estado = 'ENVIADA';
+    this.updatedAt = new Date();
+  }
+
+  aprobar(data: {
+    referenciaExterna?: string;
+    proveedorAdjudicadoRazonSocial?: string;
+    fechaAprobacion?: Date;
+    fechaEntregaEstimada?: Date;
+    observaciones?: string;
+  }): void {
+    if (this.estado !== 'ENVIADA') {
+      throw new Error('Solo se puede aprobar una solicitud en estado ENVIADA');
+    }
+    this.estado = 'APROBADA';
+    this.referenciaExterna = data.referenciaExterna;
+    this.proveedorAdjudicadoRazonSocial = data.proveedorAdjudicadoRazonSocial;
+    this.fechaAprobacion = data.fechaAprobacion ?? new Date();
+    this.fechaEntregaEstimada = data.fechaEntregaEstimada;
+    this.observaciones = data.observaciones;
+    this.updatedAt = new Date();
+  }
+
+  rechazar(data: {
+    referenciaExterna?: string;
+    observaciones?: string;
+  }): void {
+    if (this.estado !== 'ENVIADA') {
+      throw new Error('Solo se puede rechazar una solicitud en estado ENVIADA');
+    }
+    this.estado = 'RECHAZADA';
+    this.referenciaExterna = data.referenciaExterna;
+    this.observaciones = data.observaciones;
     this.updatedAt = new Date();
   }
 

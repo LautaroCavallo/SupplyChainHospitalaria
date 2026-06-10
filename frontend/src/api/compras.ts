@@ -42,6 +42,11 @@ export async function crearCompra(data: CompraCreatePayload): Promise<SolicitudC
   }
 }
 
+export async function enviarOrdenCompra(id: string): Promise<SolicitudCompra> {
+  const res = await api.post(`/solicitudes-compra/${id}/enviar-compras`);
+  return res.data.data ?? res.data;
+}
+
 export async function getAlertasCompras(): Promise<AlertaStockCritico[]> {
   try {
     const res = await api.get('/alertas/stock-critico');

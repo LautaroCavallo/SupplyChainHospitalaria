@@ -19,8 +19,9 @@ model Proveedor {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  recepciones     Recepcion[]
-  productos       ProductoInventario[]
+  recepciones             Recepcion[]
+  productos               ProductoInventario[]
+  solicitudesComoSugerido SolicitudCompra[]    @relation("ProveedorSugerido")
 
   @@map("proveedores")
 }
@@ -141,15 +142,24 @@ model RecepcionDetalle {
 }
 
 model SolicitudCompra {
-  id              String   @id @default(uuid())
-  estado          String   @default("PENDIENTE")
-  prioridad       String   @default("NORMAL")
-  motivo          String?
-  usuarioId       String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                         String    @id @default(uuid())
+  estado                     String    @default("PENDIENTE")
+  prioridad                  String    @default("NORMAL")
+  motivo                     String?
+  usuarioId                  String?
+  ordenCompraId              String?   @unique
+  ordenCompraExternaId       String?
+  referenciaExterna          String?
+  proveedorSugeridoId        String?
+  proveedorAdjudicadoRazonSocial String?
+  fechaAprobacion            DateTime?
+  fechaEntregaEstimada       DateTime?
+  observaciones              String?
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime  @updatedAt
 
-  detalles        SolicitudCompraDetalle[]
+  detalles                   SolicitudCompraDetalle[]
+  proveedorSugerido          Proveedor? @relation("ProveedorSugerido", fields: [proveedorSugeridoId], references: [id])
 
   @@map("solicitudes_compra")
 }
@@ -160,6 +170,8 @@ model SolicitudCompraDetalle {
   productoId          String
   cantidadSolicitada  Int
   cantidadAprobada    Int?
+  unidad              String   @default("unidad")
+  precioUnitario      Float?
   createdAt           DateTime @default(now())
 
   solicitud           SolicitudCompra    @relation(fields: [solicitudId], references: [id], onDelete: Cascade)

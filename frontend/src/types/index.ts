@@ -165,6 +165,9 @@ export interface SolicitudCompraDetalle {
   stockMinimo?: number;
   cantidadSolicitada: number;
   cantidadAprobada?: number;
+  unidad?: string;
+  precioUnitario?: number;
+  producto?: { id: string; nombre: string };
 }
 
 export interface SolicitudCompra {
@@ -179,11 +182,23 @@ export interface SolicitudCompra {
   detalles: SolicitudCompraDetalle[];
   createdAt: string;
   updatedAt: string;
+  // Campos OC
+  ordenCompraId?: string;
+  ordenCompraExternaId?: string;
+  referenciaExterna?: string;
+  proveedorSugeridoId?: string;
+  proveedorSugerido?: { id: string; razonSocial: string; cuit: string };
+  proveedorAdjudicadoRazonSocial?: string;
+  fechaAprobacion?: string;
+  fechaEntregaEstimada?: string;
 }
 
 export type CompraCreatePayload = {
   fechaSolicitud?: string;
   observaciones?: string;
+  prioridad?: string;
+  motivo?: string;
+  proveedorSugeridoId?: string;
   detalles: Omit<SolicitudCompraDetalle, 'id' | 'solicitudId'>[];
 };
 
