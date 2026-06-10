@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Calendar, Pill, Beaker, Send, Loader2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import type { SolicitudCompra } from '../../types';
-import { enviarOrdenCompra } from '../../api/compras';
+import { enviarOrdenCompra, getCompra } from '../../api/compras';
 import Badge from '../common/Badge';
 
 interface Props {
@@ -40,21 +40,36 @@ const prioridadLabel: Record<string, string> = {
 
 export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefresh }: Props) {
   const [enviando, setEnviando] = useState(false);
+  const [detalle, setDetalle] = useState<SolicitudCompra | null>(null);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+
+  // Siempre fetchea el detalle completo al abrir (la lista no incluye precios ni adjudicación)
+  useEffect(() => {
+    if (!isOpen || !solicitud) { setDetalle(null); return; }
+    setLoadingDetalle(true);
+    getCompra(solicitud.id)
+      .then(setDetalle)
+      .catch(() => setDetalle(solicitud)) // fallback al objeto de lista si falla
+      .finally(() => setLoadingDetalle(false));
+  }, [isOpen, solicitud?.id]);
 
   if (!isOpen || !solicitud) return null;
 
-  const fecha = solicitud.fechaSolicitud
-    ? solicitud.fechaSolicitud
-    : solicitud.createdAt
-      ? new Date(solicitud.createdAt).toLocaleDateString('es-AR')
+  // Usar el detalle completo si está disponible, sino el objeto de lista
+  const data = detalle ?? solicitud;
+
+  const fecha = data.fechaSolicitud
+    ? data.fechaSolicitud
+    : data.createdAt
+      ? new Date(data.createdAt).toLocaleDateString('es-AR')
       : '—';
 
-  const badge = estadoBadge[solicitud.estado] ?? { label: solicitud.estado, variant: 'default' as const };
+  const badge = estadoBadge[data.estado] ?? { label: data.estado, variant: 'default' as const };
 
   const handleEnviar = async () => {
     try {
       setEnviando(true);
-      await enviarOrdenCompra(solicitud.id);
+      await enviarOrdenCompra(data.id);
       onRefresh?.();
       onClose();
     } catch {
@@ -64,8 +79,8 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
     }
   };
 
-  const totalOC = solicitud.estado === 'APROBADA'
-    ? solicitud.detalles.reduce((acc, d) => {
+  const totalOC = data.estado === 'APROBADA'
+    ? data.detalles.reduce((acc, d) => {
         const cant = d.cantidadAprobada ?? d.cantidadSolicitada;
         const precio = d.precioUnitario ?? 0;
         return acc + cant * precio;
@@ -85,7 +100,7 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
           <div className="flex items-start justify-between">
             <div>
               <h2 className="font-serif text-3xl font-bold text-brand">Solicitud de Compra</h2>
-              <p className="mt-1 text-sm text-gray-500">ID: {solicitud.id}</p>
+              <p className="mt-1 text-sm text-gray-500">ID: {data.id}</p>
             </div>
             <button onClick={onClose} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-200">
               <X className="h-4 w-4" />
@@ -95,185 +110,188 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
 
         <div className="px-8 py-6 space-y-6">
 
-          {/* ── Sección 1: OC de Farmacia ─────────────────────────────────── */}
-          <section>
-            <h3 className="mb-4 text-sm font-semibold uppercase tracking-widest text-gray-400">OC de Farmacia</h3>
-
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-4">
-              <div>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Estado</p>
-                <Badge label={badge.label} variant={badge.variant} />
-              </div>
-              <div>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Prioridad</p>
-                <p className="text-sm font-semibold text-gray-800">{prioridadLabel[solicitud.prioridad] ?? solicitud.prioridad}</p>
-              </div>
-              <div>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Fecha Solicitud</p>
-                <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                  <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                  {fecha}
-                </div>
-              </div>
-              {solicitud.motivo && (
-                <div>
-                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Motivo</p>
-                  <p className="text-sm text-gray-700">{solicitud.motivo}</p>
-                </div>
-              )}
+          {/* Spinner mientras carga el detalle */}
+          {loadingDetalle && (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-brand" />
             </div>
-
-            {solicitud.proveedorSugerido && (
-              <div className="mb-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 mb-1">Proveedor Sugerido</p>
-                <p className="text-sm font-semibold text-gray-800">{solicitud.proveedorSugerido.razonSocial}</p>
-                <p className="text-xs text-gray-500">CUIT: {solicitud.proveedorSugerido.cuit}</p>
-              </div>
-            )}
-
-            {solicitud.ordenCompraExternaId && (
-              <div className="mb-4 rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
-                <p className="text-xs font-semibold text-brand">Referencia enviada a Compras: {solicitud.ordenCompraExternaId}</p>
-              </div>
-            )}
-
-            {/* Tabla items solicitados */}
-            <div className="rounded-xl overflow-hidden border border-gray-200">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400">Medicamento</th>
-                    <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-widest text-gray-400">Cant. Solicitada</th>
-                    <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-widest text-gray-400">Unidad</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 bg-white">
-                  {solicitud.detalles.map((d, i) => {
-                    const nombre = d.producto?.nombre ?? d.nombreProducto ?? `Producto ${i + 1}`;
-                    return (
-                      <tr key={d.id ?? i}>
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-2">
-                            <MedIcon name={nombre} />
-                            <span className="text-sm font-semibold text-gray-900">{nombre}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-2.5 text-center text-sm font-bold text-gray-900">{d.cantidadSolicitada}</td>
-                        <td className="px-4 py-2.5 text-center text-sm text-gray-500">{d.unidad ?? 'unidad'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* ── Banner RECHAZADA ──────────────────────────────────────────── */}
-          {solicitud.estado === 'RECHAZADA' && (
-            <section className="rounded-xl border border-red-200 bg-red-50 px-5 py-4">
-              <div className="flex items-center gap-2 mb-2">
-                <XCircle className="h-5 w-5 text-red-500" />
-                <h3 className="font-semibold text-red-700">Solicitud Rechazada por Compras</h3>
-              </div>
-              {solicitud.referenciaExterna && (
-                <p className="text-sm text-red-600">Referencia: <span className="font-mono font-semibold">{solicitud.referenciaExterna}</span></p>
-              )}
-              {solicitud.observaciones && (
-                <p className="text-sm text-red-600 mt-1">Motivo: {solicitud.observaciones}</p>
-              )}
-            </section>
           )}
 
-          {/* ── Sección 2: Adjudicación de Compras (solo APROBADA) ────────── */}
-          {solicitud.estado === 'APROBADA' && (
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-400">Adjudicación de Compras</h3>
-              </div>
+          {!loadingDetalle && (
+            <>
+              {/* ── Sección 1: OC de Farmacia ───────────────────────────────── */}
+              <section>
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-widest text-gray-400">OC de Farmacia</h3>
 
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 mb-4">
-                {solicitud.proveedorAdjudicadoRazonSocial && (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-4">
                   <div>
-                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Proveedor Adjudicado</p>
-                    <p className="text-sm font-semibold text-gray-800">{solicitud.proveedorAdjudicadoRazonSocial}</p>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Estado</p>
+                    <Badge label={badge.label} variant={badge.variant} />
                   </div>
-                )}
-                {solicitud.fechaAprobacion && (
                   <div>
-                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Fecha Aprobación</p>
-                    <p className="text-sm text-gray-700">{new Date(solicitud.fechaAprobacion).toLocaleDateString('es-AR')}</p>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Prioridad</p>
+                    <p className="text-sm font-semibold text-gray-800">{prioridadLabel[data.prioridad] ?? data.prioridad}</p>
                   </div>
-                )}
-                {solicitud.fechaEntregaEstimada && (
                   <div>
-                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Entrega Estimada</p>
-                    <p className="text-sm text-gray-700">{new Date(solicitud.fechaEntregaEstimada).toLocaleDateString('es-AR')}</p>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Fecha Solicitud</p>
+                    <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                      <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                      {fecha}
+                    </div>
                   </div>
-                )}
-                {solicitud.observaciones && (
-                  <div className="col-span-full">
-                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Observaciones</p>
-                    <p className="text-sm text-gray-700">{solicitud.observaciones}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Tabla items adjudicados */}
-              <div className="rounded-xl overflow-hidden border border-gray-200">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400">Medicamento</th>
-                      <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-widest text-gray-400">Cant. Aprobada</th>
-                      <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-400">Precio Unitario</th>
-                      <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-400">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50 bg-white">
-                    {solicitud.detalles.map((d, i) => {
-                      const nombre = d.producto?.nombre ?? d.nombreProducto ?? `Producto ${i + 1}`;
-                      const cant = d.cantidadAprobada ?? d.cantidadSolicitada;
-                      const precio = d.precioUnitario ?? 0;
-                      const subtotal = cant * precio;
-                      return (
-                        <tr key={d.id ?? i}>
-                          <td className="px-4 py-2.5">
-                            <div className="flex items-center gap-2">
-                              <MedIcon name={nombre} />
-                              <span className="text-sm font-semibold text-gray-900">{nombre}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-2.5 text-center text-sm font-bold text-gray-900">{cant}</td>
-                          <td className="px-4 py-2.5 text-right text-sm text-gray-700">
-                            {precio > 0 ? formatCurrency(precio) : '—'}
-                          </td>
-                          <td className="px-4 py-2.5 text-right text-sm font-semibold text-gray-900">
-                            {precio > 0 ? formatCurrency(subtotal) : '—'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  {totalOC > 0 && (
-                    <tfoot className="bg-gray-50">
-                      <tr>
-                        <td colSpan={3} className="px-4 py-2.5 text-right text-sm font-semibold text-gray-700">Total OC</td>
-                        <td className="px-4 py-2.5 text-right text-sm font-bold text-brand">{formatCurrency(totalOC)}</td>
-                      </tr>
-                    </tfoot>
+                  {data.motivo && (
+                    <div>
+                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Motivo</p>
+                      <p className="text-sm text-gray-700">{data.motivo}</p>
+                    </div>
                   )}
-                </table>
-              </div>
-            </section>
-          )}
+                </div>
 
-          {/* ── ENVIADA: en proceso ───────────────────────────────────────── */}
-          {solicitud.estado === 'ENVIADA' && (
-            <div className="flex items-center gap-2 rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
-              <Clock className="h-4 w-4 text-brand" />
-              <p className="text-sm font-medium text-brand">En proceso de licitación...</p>
-            </div>
+                {data.ordenCompraExternaId && (
+                  <div className="mb-4 rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
+                    <p className="text-xs font-semibold text-brand">Referencia enviada a Compras: {data.ordenCompraExternaId}</p>
+                  </div>
+                )}
+
+                {/* Tabla items solicitados */}
+                <div className="rounded-xl overflow-hidden border border-gray-200">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400">Medicamento</th>
+                        <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-widest text-gray-400">Cant. Solicitada</th>
+                        <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-widest text-gray-400">Unidad</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 bg-white">
+                      {data.detalles.map((d, i) => {
+                        const nombre = (d as any).producto?.nombre ?? d.nombreProducto ?? `Producto ${i + 1}`;
+                        return (
+                          <tr key={d.id ?? i}>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <MedIcon name={nombre} />
+                                <span className="text-sm font-semibold text-gray-900">{nombre}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5 text-center text-sm font-bold text-gray-900">{d.cantidadSolicitada}</td>
+                            <td className="px-4 py-2.5 text-center text-sm text-gray-500">{d.unidad ?? 'unidad'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              {/* ── Banner RECHAZADA ────────────────────────────────────────── */}
+              {data.estado === 'RECHAZADA' && (
+                <section className="rounded-xl border border-red-200 bg-red-50 px-5 py-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <XCircle className="h-5 w-5 text-red-500" />
+                    <h3 className="font-semibold text-red-700">Solicitud Rechazada por Compras</h3>
+                  </div>
+                  {data.referenciaExterna && (
+                    <p className="text-sm text-red-600">Referencia: <span className="font-mono font-semibold">{data.referenciaExterna}</span></p>
+                  )}
+                  {data.observaciones && (
+                    <p className="text-sm text-red-600 mt-1">Motivo: {data.observaciones}</p>
+                  )}
+                </section>
+              )}
+
+              {/* ── Sección 2: Adjudicación de Compras (solo APROBADA) ──────── */}
+              {data.estado === 'APROBADA' && (
+                <section>
+                  <div className="flex items-center gap-2 mb-4">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-400">Adjudicación de Compras</h3>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 mb-4">
+                    {data.proveedorAdjudicadoRazonSocial && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Proveedor Adjudicado</p>
+                        <p className="text-sm font-semibold text-gray-800">{data.proveedorAdjudicadoRazonSocial}</p>
+                      </div>
+                    )}
+                    {data.fechaAprobacion && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Fecha Aprobación</p>
+                        <p className="text-sm text-gray-700">{new Date(data.fechaAprobacion).toLocaleDateString('es-AR')}</p>
+                      </div>
+                    )}
+                    {data.fechaEntregaEstimada && (
+                      <div>
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Entrega Estimada</p>
+                        <p className="text-sm text-gray-700">{new Date(data.fechaEntregaEstimada).toLocaleDateString('es-AR')}</p>
+                      </div>
+                    )}
+                    {data.observaciones && (
+                      <div className="col-span-full">
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-400">Observaciones</p>
+                        <p className="text-sm text-gray-700">{data.observaciones}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tabla items adjudicados */}
+                  <div className="rounded-xl overflow-hidden border border-gray-200">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-gray-400">Medicamento</th>
+                          <th className="px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-widest text-gray-400">Cant. Aprobada</th>
+                          <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-400">Precio Unitario</th>
+                          <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-widest text-gray-400">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50 bg-white">
+                        {data.detalles.map((d, i) => {
+                          const nombre = (d as any).producto?.nombre ?? d.nombreProducto ?? `Producto ${i + 1}`;
+                          const cant = d.cantidadAprobada ?? d.cantidadSolicitada;
+                          const precio = d.precioUnitario ?? 0;
+                          const subtotal = cant * precio;
+                          return (
+                            <tr key={d.id ?? i}>
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-center gap-2">
+                                  <MedIcon name={nombre} />
+                                  <span className="text-sm font-semibold text-gray-900">{nombre}</span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-2.5 text-center text-sm font-bold text-gray-900">{cant}</td>
+                              <td className="px-4 py-2.5 text-right text-sm text-gray-700">
+                                {precio > 0 ? formatCurrency(precio) : '—'}
+                              </td>
+                              <td className="px-4 py-2.5 text-right text-sm font-semibold text-gray-900">
+                                {precio > 0 ? formatCurrency(subtotal) : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      {totalOC > 0 && (
+                        <tfoot className="bg-gray-50">
+                          <tr>
+                            <td colSpan={3} className="px-4 py-2.5 text-right text-sm font-semibold text-gray-700">Total OC</td>
+                            <td className="px-4 py-2.5 text-right text-sm font-bold text-brand">{formatCurrency(totalOC)}</td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </div>
+                </section>
+              )}
+
+              {/* ── ENVIADA: en proceso ─────────────────────────────────────── */}
+              {data.estado === 'ENVIADA' && (
+                <div className="flex items-center gap-2 rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
+                  <Clock className="h-4 w-4 text-brand" />
+                  <p className="text-sm font-medium text-brand">En proceso de licitación...</p>
+                </div>
+              )}
+            </>
           )}
 
         </div>
@@ -284,7 +302,7 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
             Cancelar
           </button>
           <div className="flex items-center gap-3">
-            {solicitud.estado === 'PENDIENTE' && (
+            {data.estado === 'PENDIENTE' && (
               <button
                 onClick={handleEnviar}
                 disabled={enviando}
@@ -297,7 +315,7 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
                 Enviar a Compras
               </button>
             )}
-            {(solicitud.estado === 'APROBADA' || solicitud.estado === 'RECHAZADA') && (
+            {(data.estado === 'APROBADA' || data.estado === 'RECHAZADA') && (
               <button
                 onClick={onClose}
                 className="rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-light"
