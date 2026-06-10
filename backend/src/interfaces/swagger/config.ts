@@ -130,9 +130,18 @@ const options: swaggerJsdoc.Options = {
           type: 'object',
           properties: {
             id: { type: 'string', format: 'uuid' },
-            estado: { type: 'string', enum: ['PENDIENTE', 'APROBADA', 'RECHAZADA', 'ENVIADA'] },
+            estado: { type: 'string', enum: ['PENDIENTE', 'ENVIADA', 'APROBADA', 'RECHAZADA'] },
             prioridad: { type: 'string', enum: ['BAJA', 'NORMAL', 'ALTA', 'URGENTE'] },
             motivo: { type: 'string', nullable: true },
+            observaciones: { type: 'string', nullable: true },
+            ordenCompraId: { type: 'string', format: 'uuid', nullable: true, description: 'UUID generado al enviar la OC a Compras' },
+            ordenCompraExternaId: { type: 'string', nullable: true, description: 'ID devuelto por el módulo de Compras al recibir la OC' },
+            referenciaExterna: { type: 'string', nullable: true, description: 'Referencia final de adjudicación' },
+            proveedorSugeridoId: { type: 'string', format: 'uuid', nullable: true },
+            proveedorAdjudicadoRazonSocial: { type: 'string', nullable: true, description: 'Proveedor seleccionado por Compras tras la licitación' },
+            fechaAprobacion: { type: 'string', format: 'date-time', nullable: true },
+            fechaEntregaEstimada: { type: 'string', format: 'date-time', nullable: true, description: 'Estimada por Compras. Mock: now + 10 días' },
+            createdAt: { type: 'string', format: 'date-time' },
             detalles: {
               type: 'array',
               items: { $ref: '#/components/schemas/SolicitudCompraDetalle' },
@@ -146,7 +155,35 @@ const options: swaggerJsdoc.Options = {
             solicitudId: { type: 'string', format: 'uuid' },
             productoId: { type: 'string', format: 'uuid' },
             cantidadSolicitada: { type: 'integer' },
-            cantidadAprobada: { type: 'integer', nullable: true },
+            cantidadAprobada: { type: 'integer', nullable: true, description: 'Completado por Compras en la adjudicación' },
+            precioUnitario: { type: 'number', format: 'float', nullable: true, description: 'Precio unitario devuelto por Compras. Null hasta que se adjudique.' },
+            unidad: { type: 'string', default: 'unidad' },
+          },
+        },
+        ConfirmacionAdjudicacionRequest: {
+          type: 'object',
+          required: ['aprobado'],
+          properties: {
+            aprobado: { type: 'boolean', description: 'true = adjudicada, false = rechazada' },
+            referenciaExterna: { type: 'string', example: 'OC-COMPRAS-123' },
+            proveedorAdjudicado: {
+              type: 'object',
+              properties: { razonSocial: { type: 'string' } },
+            },
+            itemsAdjudicados: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  productoId: { type: 'string', format: 'uuid' },
+                  cantidadAprobada: { type: 'integer' },
+                  precioUnitario: { type: 'number', format: 'float', example: 1250.75 },
+                },
+              },
+            },
+            fechaAprobacion: { type: 'string', format: 'date-time' },
+            fechaEntregaEstimada: { type: 'string', format: 'date-time', description: 'Default mock: now + 10 días' },
+            observaciones: { type: 'string' },
           },
         },
         MedicamentoVademecum: {
@@ -484,6 +521,163 @@ const options: swaggerJsdoc.Options = {
               },
             },
             '400': { description: 'Solicitud inválida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/solicitudes-compra': {
+        get: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Listar solicitudes de compra',
+          parameters: [
+            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['PENDIENTE', 'ENVIADA', 'APROBADA', 'RECHAZADA'] } },
+            { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
+            { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
+          ],
+          responses: {
+            '200': {
+              description: 'Listado paginado de solicitudes',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: { type: 'array', items: { $ref: '#/components/schemas/SolicitudCompra' } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Crear una nueva solicitud de compra (OC sin importes)',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['detalles'],
+                  properties: {
+                    prioridad: { type: 'string', enum: ['BAJA', 'NORMAL', 'ALTA', 'URGENTE'], default: 'NORMAL' },
+                    motivo: { type: 'string' },
+                    observaciones: { type: 'string' },
+                    proveedorSugeridoId: { type: 'string', format: 'uuid', nullable: true, description: 'Proveedor sugerido a Compras. Puede ser reemplazado en la adjudicación.' },
+                    detalles: {
+                      type: 'array',
+                      minItems: 1,
+                      items: {
+                        type: 'object',
+                        required: ['productoId', 'cantidadSolicitada'],
+                        properties: {
+                          productoId: { type: 'string', format: 'uuid' },
+                          cantidadSolicitada: { type: 'integer', minimum: 1 },
+                          unidad: { type: 'string', default: 'unidad' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  prioridad: 'ALTA',
+                  motivo: 'Stock crítico detectado',
+                  detalles: [
+                    { productoId: '<uuid>', cantidadSolicitada: 50, unidad: 'unidad' },
+                  ],
+                },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'OC creada en estado PENDIENTE',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/SolicitudCompra' } } } } },
+            },
+            '400': { description: 'Validación fallida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/solicitudes-compra/{id}': {
+        get: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Obtener detalle completo de una OC (incluye precios si ya fue adjudicada)',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Detalle de la OC con todos los campos de adjudicación',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/SolicitudCompra' } } } } },
+            },
+            '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/solicitudes-compra/{id}/enviar-compras': {
+        post: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Enviar OC al módulo de Compras (PENDIENTE → ENVIADA)',
+          description: 'Genera un ordenCompraId, envía la OC al endpoint configurado en COMPRAS_URL e incluye el callbackUrl para la adjudicación. En modo mock (COMPRAS_USE_MOCK=true) simula la adjudicación automáticamente con precios aleatorios y pasa directo a APROBADA.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            '200': {
+              description: 'OC enviada. En modo mock pasa directo a APROBADA con precios.',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/SolicitudCompra' } } } } },
+            },
+            '400': { description: 'La OC no está en estado PENDIENTE', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/solicitudes-compra/{id}/confirmacion-adjudicacion': {
+        post: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Callback de adjudicación desde el módulo de Compras (ENVIADA → APROBADA o RECHAZADA)',
+          description: 'Endpoint que llama el módulo de Compras una vez terminada la licitación. Incluye proveedor adjudicado, precios por item y fecha estimada de entrega. También puede usarse para simular manualmente un rechazo en desarrollo.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ConfirmacionAdjudicacionRequest' },
+                examples: {
+                  aprobada: {
+                    summary: 'Adjudicación aprobada',
+                    value: {
+                      aprobado: true,
+                      referenciaExterna: 'OC-COMPRAS-123',
+                      proveedorAdjudicado: { razonSocial: 'Droguería Ejemplo SA' },
+                      itemsAdjudicados: [{ productoId: '<uuid>', cantidadAprobada: 50, precioUnitario: 1250.75 }],
+                      fechaAprobacion: '2026-06-09T00:00:00.000Z',
+                      fechaEntregaEstimada: '2026-06-19T00:00:00.000Z',
+                      observaciones: 'Adjudicado por licitación pública',
+                    },
+                  },
+                  rechazada: {
+                    summary: 'OC rechazada',
+                    value: {
+                      aprobado: false,
+                      referenciaExterna: 'OC-COMPRAS-123',
+                      observaciones: 'Sin presupuesto disponible',
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Estado actualizado a APROBADA o RECHAZADA',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/SolicitudCompra' } } } } },
+            },
+            '400': { description: 'La OC no está en estado ENVIADA', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
           },
         },
       },
