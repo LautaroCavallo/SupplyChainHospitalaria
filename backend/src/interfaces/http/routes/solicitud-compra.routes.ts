@@ -48,7 +48,7 @@ export function solicitudCompraRoutes(container: Container): Router {
     param('id').isUUID().withMessage('ID debe ser un UUID válido'),
     body('aprobado').isBoolean().withMessage('aprobado debe ser booleano'),
     body('referenciaExterna').optional().isString(),
-    body('itemsAdjudicados').optional().isArray(),
+    body('itemsAdjudicados').optional({ values: 'null' }).isArray(),
     body('itemsAdjudicados.*.productoId').optional().isUUID(),
     body('itemsAdjudicados.*.cantidadAprobada').optional().isInt({ min: 0 }),
     body('itemsAdjudicados.*.precioUnitario').optional().isFloat({ min: 0 }),
