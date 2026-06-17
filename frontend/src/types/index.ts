@@ -20,7 +20,7 @@ export type TipoMovimiento =
   | 'AJUSTE_NEGATIVO'
   | 'CONSUMO_RECETA';
 
-export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ENVIADA';
+export type EstadoSolicitud = 'BORRADOR' | 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ENVIADA';
 export type PrioridadSolicitud = 'BAJA' | 'NORMAL' | 'ALTA' | 'URGENTE';
 
 // ─── Inventario ───────────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ export interface SolicitudCompraDetalle {
   cantidadAprobada?: number;
   unidad?: string;
   precioUnitario?: number;
-  producto?: { id: string; nombre: string };
+  producto?: { id: string; nombre: string; stockActual?: number; stockMinimo?: number };
 }
 
 export interface SolicitudCompra {
@@ -194,6 +194,7 @@ export interface SolicitudCompra {
 }
 
 export type CompraCreatePayload = {
+  estado?: string;
   fechaSolicitud?: string;
   observaciones?: string;
   prioridad?: string;
@@ -226,7 +227,7 @@ export interface MedicamentoListItem {
   presentacion?: string;
   ean?: string;
   laboratorio?: string;
-  estado: 'ACTIVO' | 'INACTIVO' | 'SUSPENDIDO';
+  estado: 'ACTIVO' | 'INACTIVO';
   precio?: number;
   observaciones?: string;
 }

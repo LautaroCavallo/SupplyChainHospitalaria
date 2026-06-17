@@ -25,7 +25,10 @@ export class MedicamentoController {
       const busqueda = req.query.busqueda as string | undefined;
       const categoria = req.query.categoria as string | undefined;
       const estado = req.query.estado as EstadoMedicamento | undefined;
-      const activo = estado === 'INACTIVO' || estado === 'SUSPENDIDO' ? false : true;
+      // Sin filtro de estado → ambos (activo undefined). ACTIVO → true. INACTIVO → false.
+      const activo = estado === 'ACTIVO' ? true
+        : (estado === 'INACTIVO' || estado === 'SUSPENDIDO') ? false
+        : undefined;
 
       const productos = await this.inventarioRepository.findAll({
         nombre: busqueda,

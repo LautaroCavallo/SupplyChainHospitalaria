@@ -153,6 +153,7 @@ export interface FiltroRecepcionDTO extends PaginacionDTO {
 }
 
 export interface CrearSolicitudCompraDTO {
+  estado?: string;
   prioridad?: string;
   motivo?: string;
   proveedorSugeridoId?: string;

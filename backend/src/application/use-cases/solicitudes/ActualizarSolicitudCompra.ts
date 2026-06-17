@@ -3,13 +3,22 @@ import { IInventarioRepository } from '../../../domain/repositories/IInventarioR
 import { CrearSolicitudCompraDTO, SolicitudCompraResponseDTO } from '../../dtos';
 import { NotFoundError, ValidationError } from '../../errors/AppError';
 
-export class CrearSolicitudCompra {
+export class ActualizarSolicitudCompra {
   constructor(
     private readonly solicitudRepository: ISolicitudCompraRepository,
     private readonly inventarioRepository: IInventarioRepository,
   ) {}
 
-  async execute(dto: CrearSolicitudCompraDTO): Promise<SolicitudCompraResponseDTO> {
+  async execute(id: string, dto: CrearSolicitudCompraDTO): Promise<SolicitudCompraResponseDTO> {
+    const solicitud = await this.solicitudRepository.findById(id);
+    if (!solicitud) {
+      throw new NotFoundError(`Solicitud ${id} no encontrada`);
+    }
+
+    if (solicitud.estado !== 'BORRADOR') {
+      throw new ValidationError('Solo se puede modificar una solicitud en estado BORRADOR');
+    }
+
     if (!dto.detalles || dto.detalles.length === 0) {
       throw new ValidationError('La solicitud debe tener al menos un detalle');
     }
@@ -21,13 +30,13 @@ export class CrearSolicitudCompra {
       }
     }
 
-    const estado = dto.estado === 'BORRADOR' ? 'BORRADOR' : 'PENDIENTE';
-
-    const result = await this.solicitudRepository.create({
-      ...dto,
-      estado: estado as any,
-      prioridad: (dto.prioridad ?? 'NORMAL') as any,
+    const result = await this.solicitudRepository.updateBorrador(id, {
+      prioridad: dto.prioridad as any,
+      motivo: dto.motivo,
+      proveedorSugeridoId: dto.proveedorSugeridoId,
+      detalles: dto.detalles,
     });
+
     return result as unknown as SolicitudCompraResponseDTO;
   }
 }

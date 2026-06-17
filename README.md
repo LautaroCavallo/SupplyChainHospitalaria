@@ -12,13 +12,14 @@ Clean Architecture + Repository Pattern + Adapter Pattern
 backend/src/
 ├── domain/          → Entidades, interfaces de repositorios y servicios
 ├── application/     → Casos de uso, DTOs, errores de aplicación
-├── infrastructure/  → Prisma repos, mock adapters, contenedor DI
+├── infrastructure/  → Prisma repos, adapters externos (fixtures/http/core/hce), contenedor DI
 └── interfaces/      → Controllers REST, rutas, middleware, Swagger
 
 frontend/src/
 ├── api/             → Cliente HTTP y funciones de API
-├── components/      → Componentes reutilizables (layout, common, inventario)
+├── components/      → Componentes reutilizables (layout, common, compras, gestion, inventario, recepciones)
 ├── pages/           → Páginas principales
+├── utils/           → Utilidades (ordenamiento, etc.)
 └── types/           → TypeScript interfaces
 ```
 
@@ -45,7 +46,7 @@ frontend/src/
 cd backend
 npm install
 npx prisma migrate dev --name init
-npx prisma db seed        # Datos de ejemplo
+npm run prisma:seed        # Datos de ejemplo
 npm run dev                # http://localhost:3001
 
 # Frontend (en otra terminal)
@@ -65,7 +66,23 @@ npm run dev                # http://localhost:5173
 
 ## API Endpoints
 
-### Vademécum (Mock Alfabeta)
+> Documentación interactiva completa en Swagger: **http://localhost:3001/api/docs**
+
+### Autenticación
+- `POST /api/v1/auth/login` — Login (delegado al Core; `AUTH_MODE=mock` por defecto)
+
+### Dashboard
+- `GET /api/v1/dashboard` — Resumen / KPIs del dashboard
+- `GET /api/v1/dashboard/actividad-reciente?page=&limit=&busqueda=&usuario=&evento=&desde=&hasta=` — Registro de actividad
+
+### Medicamentos
+- `GET /api/v1/medicamentos?page=&limit=&busqueda=&categoria=&estado=` — Listar (sin `estado` devuelve activos e inactivos)
+- `GET /api/v1/medicamentos/summary` — Totales (total/activos/inactivos)
+- `POST /api/v1/medicamentos` — Crear medicamento
+- `PUT /api/v1/medicamentos/:id` — Actualizar medicamento
+- `DELETE /api/v1/medicamentos/:id` — Eliminar (baja lógica)
+
+### Vademécum (Fixture Alfabeta)
 - `GET /api/v1/vademecum/search?q=amoxicilina` — Buscar medicamentos
 - `GET /api/v1/vademecum/:id` — Obtener medicamento por ID
 
@@ -78,15 +95,19 @@ npm run dev                # http://localhost:5173
 
 ### Inventario
 - `GET /api/v1/inventario?page=1&limit=20&busqueda=&categoria=&estado=` — Listar inventario
+- `GET /api/v1/inventario/summary` — Resumen de stock (total/bajo stock/sin stock)
+- `GET /api/v1/inventario/ean/:ean` — Buscar producto por código EAN
 - `GET /api/v1/inventario/:id` — Detalle de producto
 - `POST /api/v1/inventario/:id/ajuste` — Ajustar stock (incremento/decremento)
 - `GET /api/v1/inventario/:id/movimientos` — Historial de movimientos
 - `GET /api/v1/inventario/:id/lotes` — Lotes del producto
+- `GET /api/v1/inventario/:id/lotes/:loteId/historial?tipo=&fechaDesde=&fechaHasta=` — Historial de movimientos de un lote
 
 ### Recepciones
 - `GET /api/v1/recepciones?page=1&limit=20&estado=` — Listar recepciones
 - `GET /api/v1/recepciones/:id` — Detalle de recepción
 - `POST /api/v1/recepciones` — Crear recepción (BORRADOR)
+- `PUT /api/v1/recepciones/:id` — Editar recepción
 - `PUT /api/v1/recepciones/:id/confirmar` — Confirmar recepción
 - `PUT /api/v1/recepciones/:id/procesar` — Procesar recepción (impacta stock)
 
@@ -94,26 +115,31 @@ npm run dev                # http://localhost:5173
 - `GET /api/v1/alertas/stock-critico` — Productos con stock bajo/crítico/sin stock
 
 ### Solicitudes de Compra
-- `GET /api/v1/solicitudes-compra` — Listar solicitudes
-- `POST /api/v1/solicitudes-compra` — Crear solicitud
+- `GET /api/v1/solicitudes-compra?page=1&limit=10&estado=` — Listar solicitudes (paginado; estado: `BORRADOR`/`PENDIENTE`/`ENVIADA`/`APROBADA`/`RECHAZADA`)
+- `GET /api/v1/solicitudes-compra/:id` — Detalle de solicitud
+- `POST /api/v1/solicitudes-compra` — Crear solicitud (`estado`: `BORRADOR` o `PENDIENTE`)
+- `PUT /api/v1/solicitudes-compra/:id` — Editar un borrador (agregar/modificar/eliminar items; solo estado BORRADOR)
+- `DELETE /api/v1/solicitudes-compra/:id` — Eliminar un borrador (solo estado BORRADOR)
+- `POST /api/v1/solicitudes-compra/:id/confirmar-borrador` — Confirmar borrador (BORRADOR → PENDIENTE)
+- `POST /api/v1/solicitudes-compra/:id/enviar-compras` — Enviar a Compras (PENDIENTE → ENVIADA)
+- `POST /api/v1/solicitudes-compra/:id/confirmacion-adjudicacion` — Callback de adjudicación (ENVIADA → APROBADA/RECHAZADA)
 
 ### Recetas (Mock)
 - `POST /api/v1/recetas/:id/validar` — Validar receta
 - `POST /api/v1/recetas/:id/consumir` — Consumir receta (impacta stock)
 
-## Integraciones Mockeadas
+## Integraciones Externas
 
-El módulo implementa el **Adapter Pattern** para todas las integraciones externas:
+El módulo implementa el **Adapter Pattern** para todas las integraciones externas. Cada una tiene una implementación local (fixture) y otra real (HTTP), seleccionable por variable de entorno:
 
-| Integración | Interface | Mock | Futuro |
-|---|---|---|---|
-| Vademécum Alfabeta | `IVademecumService` | `MockVademecumService` | `RealVademecumService` |
-| Módulo 1: Recetas | `IRecetaService` | `MockRecetaService` | `HttpRecetaService` |
-| Módulo 7: Compras | `IComprasService` | `MockComprasService` | `HttpComprasService` |
+| Integración | Interface | Local (fixture/mock) | Real | Selector |
+|---|---|---|---|---|
+| Vademécum Alfabeta | `IVademecumService` | `VademecumFixtureService` | — | — |
+| Módulo 1: Recetas (HCE) | `IRecetaService` | `RecetaFixtureService` | `HceRecetaService` | `RECETA_MODE` |
+| Módulo 7: Compras | `IComprasService` | `ComprasFixtureService` | `HttpComprasService` | `COMPRAS_USE_MOCK` |
+| Autenticación (Core) | `CoreAuthService` | modo `mock` | Core API | `AUTH_MODE` |
 
-Para reemplazar un mock por la implementación real, solo se necesita:
-1. Crear la nueva clase que implemente la interface
-2. Cambiar la instanciación en `infrastructure/container.ts`
+Para reemplazar una implementación local por la real, se cambia la variable de entorno correspondiente (o la instanciación en `infrastructure/container.ts`).
 
 ## Modelo de Datos
 
@@ -166,7 +192,7 @@ BORRADOR → CONFIRMADA → PROCESADA
 - CORS configurado
 - DTOs para entrada/salida (protección contra mass assignment)
 - Manejo de errores sin exposición de datos sensibles
-- Preparado para autenticación JWT (middleware mock)
+- Autenticación delegada al Core (`AUTH_MODE`, middleware `auth`), con modo mock para desarrollo
 - Logging con Winston (sin datos sensibles)
 
 ## Variables de Entorno
@@ -175,9 +201,17 @@ BORRADOR → CONFIRMADA → PROCESADA
 DATABASE_URL="file:./dev.db"
 PORT=3001
 NODE_ENV=development
-JWT_SECRET=cambiar-en-produccion
 LOG_LEVEL=info
 CORS_ORIGIN=http://localhost:5173
+
+# Integraciones externas
+AUTH_MODE=mock                 # mock | core
+RECETA_MODE=mock               # mock | hce
+COMPRAS_USE_MOCK=true          # true usa fixture, false llama a COMPRAS_URL
+COMPRAS_URL=                   # URL del Módulo 7 (Compras)
+CORE_API_URL=                  # URL del Core (auth)
+HCE_API_URL=                   # URL del Módulo 1 (recetas/HCE)
+EXTERNAL_TIMEOUT_MS=8000
 ```
 
 ## Estructura de Archivos
@@ -191,32 +225,36 @@ SupplyChainHospitalaria/
 │   │   └── migrations/           # Migraciones SQL
 │   ├── src/
 │   │   ├── domain/
-│   │   │   ├── entities/         # 6 entidades de dominio
-│   │   │   ├── repositories/     # 6 interfaces de repositorio
-│   │   │   └── services/         # 3 interfaces de servicio externo
+│   │   │   ├── entities/         # Entidades de dominio
+│   │   │   ├── repositories/     # Interfaces de repositorio
+│   │   │   └── services/         # Interfaces de servicio externo
 │   │   ├── application/
 │   │   │   ├── dtos/             # DTOs de entrada/salida
 │   │   │   ├── errors/           # Errores de aplicación
-│   │   │   └── use-cases/        # 22 casos de uso
+│   │   │   └── use-cases/        # Casos de uso (inventario, recepciones, solicitudes, recetas, dashboard, etc.)
 │   │   ├── infrastructure/
-│   │   │   ├── database/         # 7 repositorios Prisma
-│   │   │   ├── external/mock/    # 3 servicios mock
+│   │   │   ├── database/         # Repositorios Prisma
+│   │   │   ├── external/         # Adapters externos: fixtures/, compras/, core/, hce/
 │   │   │   └── container.ts      # Contenedor DI
 │   │   └── interfaces/
 │   │       ├── http/
-│   │       │   ├── controllers/  # 7 controladores
-│   │       │   ├── routes/       # 8 archivos de rutas
-│   │       │   └── middleware/   # 3 middlewares
+│   │       │   ├── controllers/  # Controladores REST
+│   │       │   ├── routes/       # Archivos de rutas (auth, dashboard, medicamentos, inventario, recepciones, solicitudes, recetas, vademécum, proveedores, alertas)
+│   │       │   └── middleware/   # auth, errorHandler, sanitize
 │   │       └── swagger/          # Configuración OpenAPI
 │   └── package.json
 ├── frontend/
 │   ├── src/
-│   │   ├── api/                  # 5 módulos de API
+│   │   ├── api/                  # Módulos de API (auth, dashboard, inventario, medicamentos, compras, recepciones, etc.)
 │   │   ├── components/           # Componentes UI
 │   │   │   ├── layout/           # Sidebar, Header, Layout
-│   │   │   ├── common/           # Badge, Modal, Pagination, Search
-│   │   │   └── inventario/       # AjusteStockModal
-│   │   ├── pages/                # 7 páginas
+│   │   │   ├── common/           # Badge, Modal, Pagination, FilterTabs, ConfirmModal, SortableTh, etc.
+│   │   │   ├── compras/          # NuevaSolicitudModal, VerSolicitudModal, AlertasCarousel
+│   │   │   ├── gestion/          # MedicamentoModal, ProveedorFormModal, ProveedorDetalleModal
+│   │   │   ├── inventario/       # AjusteStockModal
+│   │   │   └── recepciones/      # RecepcionDetalleModal
+│   │   ├── pages/                # Páginas (Dashboard, Inventario, Compras, Recepciones, Gestión, etc.)
+│   │   ├── utils/                # Utilidades (sort)
 │   │   └── types/                # TypeScript interfaces
 │   └── package.json
 └── README.md

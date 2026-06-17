@@ -1,4 +1,4 @@
-export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ENVIADA';
+export type EstadoSolicitud = 'BORRADOR' | 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ENVIADA';
 export type PrioridadSolicitud = 'BAJA' | 'NORMAL' | 'ALTA' | 'URGENTE';
 
 export class SolicitudCompraDetalle {
@@ -95,6 +95,14 @@ export class SolicitudCompra {
     this.fechaAprobacion = props.fechaAprobacion;
     this.fechaEntregaEstimada = props.fechaEntregaEstimada;
     this.observaciones = props.observaciones;
+  }
+
+  confirmar(): void {
+    if (this.estado !== 'BORRADOR') {
+      throw new Error('Solo se puede confirmar una solicitud en estado BORRADOR');
+    }
+    this.estado = 'PENDIENTE';
+    this.updatedAt = new Date();
   }
 
   enviar(): void {

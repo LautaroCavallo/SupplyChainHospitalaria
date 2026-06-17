@@ -130,7 +130,7 @@ const options: swaggerJsdoc.Options = {
           type: 'object',
           properties: {
             id: { type: 'string', format: 'uuid' },
-            estado: { type: 'string', enum: ['PENDIENTE', 'ENVIADA', 'APROBADA', 'RECHAZADA'] },
+            estado: { type: 'string', enum: ['BORRADOR', 'PENDIENTE', 'ENVIADA', 'APROBADA', 'RECHAZADA'] },
             prioridad: { type: 'string', enum: ['BAJA', 'NORMAL', 'ALTA', 'URGENTE'] },
             motivo: { type: 'string', nullable: true },
             observaciones: { type: 'string', nullable: true },
@@ -231,7 +231,7 @@ const options: swaggerJsdoc.Options = {
             presentacion: { type: 'string', nullable: true },
             ean: { type: 'string', nullable: true },
             laboratorio: { type: 'string', nullable: true },
-            estado: { type: 'string', enum: ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'] },
+            estado: { type: 'string', enum: ['ACTIVO', 'INACTIVO'] },
             precio: { type: 'number', nullable: true },
             observaciones: { type: 'string', nullable: true },
           },
@@ -244,7 +244,7 @@ const options: swaggerJsdoc.Options = {
             presentacion: { type: 'string', nullable: true },
             ean: { type: 'string', nullable: true },
             laboratorio: { type: 'string', nullable: true },
-            estado: { type: 'string', enum: ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'] },
+            estado: { type: 'string', enum: ['ACTIVO', 'INACTIVO'] },
             precio: { type: 'number', nullable: true },
             observaciones: { type: 'string', nullable: true },
           },
@@ -390,7 +390,7 @@ const options: swaggerJsdoc.Options = {
             { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
             { name: 'busqueda', in: 'query', required: false, schema: { type: 'string' } },
             { name: 'categoria', in: 'query', required: false, schema: { type: 'string' } },
-            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'] } },
+            { name: 'estado', in: 'query', required: false, description: 'Sin valor devuelve activos e inactivos. ACTIVO = solo activos. INACTIVO = solo inactivos.', schema: { type: 'string', enum: ['ACTIVO', 'INACTIVO'] } },
           ],
           responses: {
             '200': {
@@ -529,7 +529,7 @@ const options: swaggerJsdoc.Options = {
           tags: ['Solicitudes de Compra'],
           summary: 'Listar solicitudes de compra',
           parameters: [
-            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['PENDIENTE', 'ENVIADA', 'APROBADA', 'RECHAZADA'] } },
+            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['BORRADOR', 'PENDIENTE', 'ENVIADA', 'APROBADA', 'RECHAZADA'] } },
             { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
             { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
           ],
@@ -543,6 +543,10 @@ const options: swaggerJsdoc.Options = {
                     properties: {
                       success: { type: 'boolean' },
                       data: { type: 'array', items: { $ref: '#/components/schemas/SolicitudCompra' } },
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      totalPages: { type: 'integer' },
                     },
                   },
                 },
@@ -561,6 +565,7 @@ const options: swaggerJsdoc.Options = {
                   type: 'object',
                   required: ['detalles'],
                   properties: {
+                    estado: { type: 'string', enum: ['BORRADOR', 'PENDIENTE'], default: 'PENDIENTE', description: 'BORRADOR para guardar como borrador editable; PENDIENTE crea la solicitud lista para enviar.' },
                     prioridad: { type: 'string', enum: ['BAJA', 'NORMAL', 'ALTA', 'URGENTE'], default: 'NORMAL' },
                     motivo: { type: 'string' },
                     observaciones: { type: 'string' },
@@ -611,6 +616,86 @@ const options: swaggerJsdoc.Options = {
               description: 'Detalle de la OC con todos los campos de adjudicación',
               content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/SolicitudCompra' } } } } },
             },
+            '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+        put: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Editar un borrador (solo estado BORRADOR)',
+          description: 'Reemplaza por completo los items del borrador (agregar / modificar / eliminar) y campos de cabecera. Solo permitido cuando la solicitud está en estado BORRADOR.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['detalles'],
+                  properties: {
+                    prioridad: { type: 'string', enum: ['BAJA', 'NORMAL', 'ALTA', 'URGENTE'] },
+                    motivo: { type: 'string' },
+                    observaciones: { type: 'string' },
+                    proveedorSugeridoId: { type: 'string', format: 'uuid', nullable: true },
+                    detalles: {
+                      type: 'array',
+                      minItems: 1,
+                      items: {
+                        type: 'object',
+                        required: ['productoId', 'cantidadSolicitada'],
+                        properties: {
+                          productoId: { type: 'string', format: 'uuid' },
+                          cantidadSolicitada: { type: 'integer', minimum: 1 },
+                          unidad: { type: 'string', default: 'unidad' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Borrador actualizado',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/SolicitudCompra' } } } } },
+            },
+            '400': { description: 'La solicitud no está en estado BORRADOR o validación fallida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+        delete: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Eliminar un borrador (solo estado BORRADOR)',
+          description: 'Elimina permanentemente la solicitud. Solo permitido cuando está en estado BORRADOR.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Borrador eliminado',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' } } } } },
+            },
+            '400': { description: 'La solicitud no está en estado BORRADOR', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/solicitudes-compra/{id}/confirmar-borrador': {
+        post: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Confirmar un borrador (BORRADOR → PENDIENTE)',
+          description: 'Transiciona la solicitud de BORRADOR a PENDIENTE, dejándola lista para enviarse a Compras.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Solicitud confirmada (ahora PENDIENTE)',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/SolicitudCompra' } } } } },
+            },
+            '400': { description: 'La solicitud no está en estado BORRADOR', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
             '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
           },
         },
