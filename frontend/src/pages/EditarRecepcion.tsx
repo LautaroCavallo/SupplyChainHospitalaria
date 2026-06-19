@@ -8,6 +8,7 @@ import { getInventario, getProductoPorEan } from '../api/inventario';
 import type { EstadoRecepcion, Proveedor, ProductoInventario, RecepcionDetalle } from '../types';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import ConfirmModal from '../components/common/ConfirmModal';
+import DateTextInput from '../components/common/DateTextInput';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 interface DetalleRow extends RecepcionDetalle {
@@ -339,7 +340,7 @@ export default function EditarRecepcion() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-400">Fecha de recepción</label>
-            <input type="date" value={fechaRecepcion} onChange={(e) => setFechaRecepcion(e.target.value)}
+            <DateTextInput value={fechaRecepcion} onChange={setFechaRecepcion}
               className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none" />
           </div>
         </div>
@@ -410,10 +411,9 @@ export default function EditarRecepcion() {
                   />
                 </td>
                 <td className="px-4 py-5">
-                  <input
-                    type="date"
+                  <DateTextInput
                     value={row.fechaVencimiento ?? ''}
-                    onChange={(e) => updateRow(row.key, 'fechaVencimiento', e.target.value)}
+                    onChange={(value) => updateRow(row.key, 'fechaVencimiento', value)}
                     title={formatDate(row.fechaVencimiento)}
                     className="h-10 w-full min-w-36 rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none"
                   />
@@ -578,7 +578,7 @@ export default function EditarRecepcion() {
                   </div>
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-gray-600">Vencimiento</label>
-                    <input type="date" value={editingRow.fechaVencimiento} onChange={(e) => updateEditingRow('fechaVencimiento', e.target.value)} className="h-12 w-full bg-gray-100 px-4 text-lg focus:outline-none" />
+                    <DateTextInput value={editingRow.fechaVencimiento} onChange={(value) => updateEditingRow('fechaVencimiento', value)} className="h-12 w-full bg-gray-100 px-4 text-lg focus:outline-none" />
                   </div>
                 </div>
               </section>

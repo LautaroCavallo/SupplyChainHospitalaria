@@ -6,6 +6,7 @@ import { crearRecepcion } from '../api/recepciones';
 import { getInventario } from '../api/inventario';
 import type { Proveedor, ProductoInventario } from '../types';
 import ConfirmModal from '../components/common/ConfirmModal';
+import DateTextInput from '../components/common/DateTextInput';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
@@ -186,7 +187,7 @@ export default function NuevaRecepcion() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-400">Fecha de recepción</label>
-            <input type="date" value={fechaRecepcion} onChange={(e) => setFechaRecepcion(e.target.value)}
+            <DateTextInput value={fechaRecepcion} onChange={setFechaRecepcion}
               className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand" />
           </div>
         </div>
@@ -257,7 +258,7 @@ export default function NuevaRecepcion() {
                     className="h-9 w-full rounded-xl border border-gray-200 px-2 text-sm focus:border-brand focus:outline-none" />
                 </td>
                 <td className="px-4 py-2">
-                  <input type="date" value={row.fechaVencimiento} onChange={(e) => updateRow(row.key, 'fechaVencimiento', e.target.value)}
+                  <DateTextInput value={row.fechaVencimiento} onChange={(value) => updateRow(row.key, 'fechaVencimiento', value)}
                     className="h-9 w-full rounded-xl border border-gray-200 px-2 text-sm focus:border-brand focus:outline-none" />
                 </td>
                 <td className="px-4 py-2">
