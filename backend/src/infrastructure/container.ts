@@ -31,6 +31,7 @@ import { DetectarStockCritico } from '../application/use-cases/alertas/DetectarS
 import { ListarRecepciones } from '../application/use-cases/recepciones/ListarRecepciones';
 import { ObtenerRecepcion } from '../application/use-cases/recepciones/ObtenerRecepcion';
 import { CrearRecepcion } from '../application/use-cases/recepciones/CrearRecepcion';
+import { CrearRecepcionDesdeOrdenCompra } from '../application/use-cases/recepciones/CrearRecepcionDesdeOrdenCompra';
 import { ActualizarRecepcion } from '../application/use-cases/recepciones/ActualizarRecepcion';
 import { ConfirmarRecepcion } from '../application/use-cases/recepciones/ConfirmarRecepcion';
 import { ProcesarRecepcion } from '../application/use-cases/recepciones/ProcesarRecepcion';
@@ -89,6 +90,7 @@ export function createContainer() {
   const listarRecepciones = new ListarRecepciones(recepcionRepo);
   const obtenerRecepcion = new ObtenerRecepcion(recepcionRepo);
   const crearRecepcion = new CrearRecepcion(recepcionRepo, proveedorRepo);
+  const crearRecepcionDesdeOrdenCompra = new CrearRecepcionDesdeOrdenCompra(recepcionRepo, solicitudCompraRepo, proveedorRepo);
   const actualizarRecepcion = new ActualizarRecepcion(recepcionRepo, proveedorRepo);
   const confirmarRecepcion = new ConfirmarRecepcion(recepcionRepo);
   const procesarRecepcion = new ProcesarRecepcion(recepcionRepo);
@@ -126,6 +128,7 @@ export function createContainer() {
     listarRecepciones,
     obtenerRecepcion,
     crearRecepcion,
+    crearRecepcionDesdeOrdenCompra,
     actualizarRecepcion,
     confirmarRecepcion,
     procesarRecepcion,

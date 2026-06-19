@@ -14,13 +14,14 @@ interface Props {
 }
 
 const PAGE_SIZE = 3;
-type SortKey = 'producto' | 'cantidad' | 'lote' | 'precio' | 'fechaVencimiento';
+type SortKey = 'producto' | 'cantidad' | 'lote' | 'fechaVencimiento';
 
 function getInitials(name: string): string {
   return name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 }
 
 function formatDateLong(d: string): string {
+  if (!d) return '—';
   return new Date(d).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
@@ -41,7 +42,6 @@ export default function RecepcionDetalleModal({ isOpen, onClose, recepcion, onCo
       if (sort.key === 'producto') result = compareText(a.producto?.nombre, b.producto?.nombre);
       if (sort.key === 'cantidad') result = compareNumber(a.cantidad, b.cantidad);
       if (sort.key === 'lote') result = compareText(a.lote, b.lote);
-      if (sort.key === 'precio') result = compareNumber(a.precio, b.precio);
       if (sort.key === 'fechaVencimiento') result = compareDate(a.fechaVencimiento, b.fechaVencimiento);
 
       return applySortDirection(result, sort.direction);
@@ -114,9 +114,9 @@ export default function RecepcionDetalleModal({ isOpen, onClose, recepcion, onCo
         {/* Info cards */}
         <div className="grid grid-cols-3 gap-4 px-7 py-5">
           <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Transportista</p>
-            <p className="text-sm font-semibold text-gray-900">{recepcion.transportista ?? 'Logística Express S.A.'}</p>
-            <p className="text-xs text-gray-500">Guía #{recepcion.numeroGuia ?? '7728190'}</p>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Orden de compra</p>
+            <p className="text-sm font-semibold text-gray-900">{recepcion.solicitudCompraId ? `OC-${recepcion.solicitudCompraId.slice(-4).toUpperCase()}` : 'Sin OC vinculada'}</p>
+            <p className="text-xs text-gray-500">Remito {recepcion.remito ?? 'pendiente'}</p>
           </div>
           <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Responsable</p>
@@ -124,10 +124,8 @@ export default function RecepcionDetalleModal({ isOpen, onClose, recepcion, onCo
             <p className="text-xs text-green-600">Firma digital validada</p>
           </div>
           <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Total Bultos</p>
-            <p className="text-sm font-semibold text-gray-900">
-              {recepcion.cantBultos ?? 12} Cajas
-            </p>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">Estado</p>
+            <p className="text-sm font-semibold text-gray-900">{badgeLabel}</p>
             <p className="text-xs text-gray-500">{recepcion.detalles.length} SKUs diferentes</p>
           </div>
         </div>
@@ -141,7 +139,6 @@ export default function RecepcionDetalleModal({ isOpen, onClose, recepcion, onCo
                 <SortableTh label="Producto" sortKey="producto" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400" />
                 <SortableTh label="Cant." sortKey="cantidad" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400" />
                 <SortableTh label="Lote" sortKey="lote" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400" />
-                <SortableTh label="Precio" sortKey="precio" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400" />
                 <SortableTh label="Vencimiento" sortKey="fechaVencimiento" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-400" />
               </tr>
             </thead>
@@ -153,9 +150,8 @@ export default function RecepcionDetalleModal({ isOpen, onClose, recepcion, onCo
                     {d.laboratorio && <p className="text-xs text-gray-400">Lab: {d.laboratorio}</p>}
                   </td>
                   <td className="py-3 text-sm font-bold text-gray-900">{d.cantidad}</td>
-                  <td className="py-3 text-sm text-gray-600">{d.lote}</td>
-                  <td className="py-3 text-sm text-gray-600">{d.precio != null ? `$${d.precio.toLocaleString('es-AR')}` : '—'}</td>
-                  <td className="py-3 text-sm text-gray-600">{d.fechaVencimiento}</td>
+                  <td className="py-3 text-sm text-gray-600">{d.lote || '—'}</td>
+                  <td className="py-3 text-sm text-gray-600">{formatDateLong(d.fechaVencimiento || '')}</td>
                 </tr>
               ))}
             </tbody>

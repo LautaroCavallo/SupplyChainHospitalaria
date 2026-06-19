@@ -5,7 +5,7 @@ import validbarcode from 'barcode-validator';
 import { getRecepcion, actualizarRecepcion, confirmarRecepcion, procesarRecepcion } from '../api/recepciones';
 import { getProveedores } from '../api/proveedores';
 import { getInventario, getProductoPorEan } from '../api/inventario';
-import type { Proveedor, ProductoInventario, RecepcionDetalle } from '../types';
+import type { EstadoRecepcion, Proveedor, ProductoInventario, RecepcionDetalle } from '../types';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
@@ -13,20 +13,26 @@ import { applySortDirection, compareDate, compareNumber, compareText, nextSortDi
 interface DetalleRow extends RecepcionDetalle {
   key: number;
   nombreProducto: string;
-  precio: number;
   categoria?: string;
   presentacion?: string;
   laboratorio?: string;
 }
 
-type SortKey = 'nombreProducto' | 'cantidad' | 'precio' | 'lote' | 'fechaVencimiento';
+type SortKey = 'nombreProducto' | 'cantidad' | 'lote' | 'fechaVencimiento';
+type SubmitAction = 'procesar' | 'confirmar';
+
+function formatDate(d?: string): string {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 
 function toRow(d: RecepcionDetalle, key: number): DetalleRow {
   return {
     ...d,
     key,
     nombreProducto: d.producto?.nombre ?? '',
-    precio: d.precio ?? 0,
+    lote: d.lote ?? '',
+    fechaVencimiento: d.fechaVencimiento?.slice(0, 10) ?? '',
     categoria: d.producto?.categoria,
     presentacion: d.producto?.presentacion,
     laboratorio: d.producto?.laboratorio,
@@ -40,6 +46,7 @@ export default function EditarRecepcion() {
   const [proveedorId, setProveedorId] = useState('');
   const [remito, setRemito] = useState('');
   const [fechaRecepcion, setFechaRecepcion] = useState('');
+  const [estado, setEstado] = useState<EstadoRecepcion>('BORRADOR');
   const [rows, setRows] = useState<DetalleRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -57,6 +64,7 @@ export default function EditarRecepcion() {
   const [eanLookupMessage, setEanLookupMessage] = useState<string | null>(null);
   const [eanLookupLoading, setEanLookupLoading] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [submitAction, setSubmitAction] = useState<SubmitAction>('procesar');
 
   useEffect(() => {
     getProveedores({ limit: 100 }).then((res) => setProveedores(res.data)).catch(() => { /* ignore */ });
@@ -65,6 +73,7 @@ export default function EditarRecepcion() {
         setProveedorId(r.proveedorId);
         setRemito(r.remito ?? '');
         setFechaRecepcion(r.fechaRecepcion.slice(0, 10));
+        setEstado(r.estado);
         setRows(r.detalles.map((d, i) => toRow(d, i)));
         nextKey.current = r.detalles.length + 1;
       }).catch(() => {}).finally(() => setLoading(false));
@@ -76,7 +85,7 @@ export default function EditarRecepcion() {
   };
 
   const addRow = () => {
-    const row = { key: nextKey.current++, productoId: '', nombreProducto: '', cantidad: 0, precio: 0, ean: '', troquel: '', lote: '', fechaVencimiento: '' };
+    const row = { key: nextKey.current++, productoId: '', nombreProducto: '', cantidad: 0, ean: '', troquel: '', lote: '', fechaVencimiento: '' };
     setEditingRow(row);
     setModalSearchQuery('');
     setModalSearchResults([]);
@@ -95,16 +104,17 @@ export default function EditarRecepcion() {
     detalles: validRows.map((r) => ({
       productoId: r.productoId,
       cantidad: r.cantidad,
-      precio: r.precio || undefined,
       ean: r.ean || undefined,
       troquel: r.troquel || undefined,
-      lote: r.lote,
-      fechaVencimiento: r.fechaVencimiento,
+      lote: r.lote || undefined,
+      fechaVencimiento: r.fechaVencimiento || undefined,
     })),
   });
 
-  const validateDraft = () => {
+  const validateDraft = (options: { requireRemito?: boolean; requireTraceability?: boolean; requireLotAndExpiry?: boolean } = {}) => {
+    const { requireRemito = false, requireTraceability = false, requireLotAndExpiry = false } = options;
     if (!proveedorId) return 'Seleccione un proveedor';
+    if (requireRemito && !remito.trim()) return 'Ingrese el número de remito';
     if (!fechaRecepcion) return 'Seleccione la fecha de recepción';
     if (rows.length === 0) return 'Agregue al menos un medicamento';
 
@@ -113,9 +123,23 @@ export default function EditarRecepcion() {
       return `Busque y seleccione un medicamento válido para "${rowWithoutProduct.nombreProducto || rowWithoutProduct.ean || 'la fila nueva'}"`;
     }
 
-    const invalidRow = rows.find((r) => r.cantidad <= 0 || !r.lote || !r.fechaVencimiento);
-    if (invalidRow) {
-      return `Complete cantidad, lote y vencimiento para "${invalidRow.nombreProducto}"`;
+    const invalidQuantityRow = rows.find((r) => r.cantidad <= 0);
+    if (invalidQuantityRow) {
+      return `Complete cantidad para "${invalidQuantityRow.nombreProducto}"`;
+    }
+
+    if (requireLotAndExpiry) {
+      const invalidLotRow = rows.find((r) => !r.lote || !r.fechaVencimiento);
+      if (invalidLotRow) {
+        return `Complete lote y vencimiento para "${invalidLotRow.nombreProducto}"`;
+      }
+    }
+
+    if (requireTraceability) {
+      const rowWithoutTraceability = rows.find((r) => !r.ean?.trim() || !r.troquel?.trim());
+      if (rowWithoutTraceability) {
+        return `Complete EAN y troquel para "${rowWithoutTraceability.nombreProducto}"`;
+      }
     }
 
     return null;
@@ -135,9 +159,9 @@ export default function EditarRecepcion() {
     } catch { setError('Error al guardar'); } finally { setSaving(false); }
   };
 
-  const handleConfirmar = async () => {
+  const handleProcesar = async () => {
     if (!id) return;
-    const validationError = validateDraft();
+    const validationError = validateDraft({ requireRemito: true, requireTraceability: true, requireLotAndExpiry: true });
     if (validationError) {
       setError(validationError);
       setConfirmModalOpen(false);
@@ -146,20 +170,39 @@ export default function EditarRecepcion() {
     try {
       setSaving(true); setError(null);
       await actualizarRecepcion(id, buildPayload());
-      const processed = await procesarRecepcion(id);
-      await confirmarRecepcion(processed.id);
+      await procesarRecepcion(id);
+      navigate('/recepciones');
+    } catch { setError('Error al procesar'); } finally { setSaving(false); }
+  };
+
+  const handleConfirmar = async () => {
+    if (!id) return;
+    const validationError = validateDraft({ requireRemito: true, requireTraceability: true, requireLotAndExpiry: true });
+    if (validationError) {
+      setError(validationError);
+      setConfirmModalOpen(false);
+      return;
+    }
+    try {
+      setSaving(true); setError(null);
+      await actualizarRecepcion(id, buildPayload());
+      await confirmarRecepcion(id);
       navigate('/recepciones');
     } catch { setError('Error al confirmar'); } finally { setSaving(false); }
   };
 
   const recId = id ? (id.startsWith('REC') ? id : `REC-${id.slice(-4).toUpperCase()}`) : '';
+  const isBorrador = estado === 'BORRADOR';
+  const badgeClasses = isBorrador
+    ? 'bg-amber-100 text-amber-700'
+    : 'bg-blue-100 text-blue-700';
+  const badgeLabel = isBorrador ? 'Borrador' : estado === 'PROCESADA' ? 'Procesada' : 'Confirmada';
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => {
       let result = 0;
 
       if (sort.key === 'nombreProducto') result = compareText(a.nombreProducto, b.nombreProducto);
       if (sort.key === 'cantidad') result = compareNumber(a.cantidad, b.cantidad);
-      if (sort.key === 'precio') result = compareNumber(a.precio, b.precio);
       if (sort.key === 'lote') result = compareText(a.lote, b.lote);
       if (sort.key === 'fechaVencimiento') result = compareDate(a.fechaVencimiento, b.fechaVencimiento);
 
@@ -245,8 +288,8 @@ export default function EditarRecepcion() {
       setEanLookupMessage('Seleccione un medicamento o ingrese un EAN válido registrado');
       return;
     }
-    if (editingRow.cantidad <= 0 || !editingRow.lote || !editingRow.fechaVencimiento) {
-      setEanLookupMessage('Complete cantidad, lote y vencimiento');
+    if (editingRow.cantidad <= 0) {
+      setEanLookupMessage('Complete cantidad');
       return;
     }
     setRows((prev) => {
@@ -270,9 +313,13 @@ export default function EditarRecepcion() {
       </button>
 
       <div className="mb-6">
-        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-700">Borrador</span>
+        <span className={`rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${badgeClasses}`}>{badgeLabel}</span>
         <h1 className="mt-2 font-serif text-4xl font-bold text-gray-900">Recepción: {recId}</h1>
-        <p className="mt-1 text-sm text-gray-500">Edite los datos del remito y los medicamentos recibidos</p>
+        <p className="mt-1 text-sm text-gray-500">
+          {isBorrador
+            ? 'Complete remito, EAN, troquel, cantidad, lote y vencimiento para procesar la recepción'
+            : 'Edite los datos del remito y los medicamentos recibidos'}
+        </p>
       </div>
 
       <div className="mb-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -316,6 +363,7 @@ export default function EditarRecepcion() {
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Presentación</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">EAN</th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">Troquel</th>
+              <SortableTh label="Lote" sortKey="lote" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
               <SortableTh label="Vencimiento" sortKey="fechaVencimiento" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
               <SortableTh label="Cantidad" sortKey="cantidad" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="w-28 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
               <th className="w-24 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">Acciones</th>
@@ -334,9 +382,42 @@ export default function EditarRecepcion() {
                   </span>
                 </td>
                 <td className="px-4 py-5 text-sm text-gray-600">{row.presentacion ?? '—'}</td>
-                <td className="px-4 py-5 text-sm text-gray-600">{row.ean ?? '—'}</td>
-                <td className="px-4 py-5 text-sm text-gray-600">{row.troquel ?? '—'}</td>
-                <td className="px-4 py-5 text-sm font-semibold text-gray-900">{row.fechaVencimiento || '—'}</td>
+                <td className="px-4 py-5">
+                  <input
+                    type="text"
+                    value={row.ean ?? ''}
+                    onChange={(e) => updateRow(row.key, 'ean', e.target.value.replace(/\D/g, ''))}
+                    placeholder="EAN"
+                    className="h-10 w-full min-w-32 rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none"
+                  />
+                </td>
+                <td className="px-4 py-5">
+                  <input
+                    type="text"
+                    value={row.troquel ?? ''}
+                    onChange={(e) => updateRow(row.key, 'troquel', e.target.value)}
+                    placeholder="Troquel"
+                    className="h-10 w-full min-w-28 rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none"
+                  />
+                </td>
+                <td className="px-4 py-5">
+                  <input
+                    type="text"
+                    value={row.lote ?? ''}
+                    onChange={(e) => updateRow(row.key, 'lote', e.target.value)}
+                    placeholder="Nro. lote"
+                    className="h-10 w-full min-w-28 rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none"
+                  />
+                </td>
+                <td className="px-4 py-5">
+                  <input
+                    type="date"
+                    value={row.fechaVencimiento ?? ''}
+                    onChange={(e) => updateRow(row.key, 'fechaVencimiento', e.target.value)}
+                    title={formatDate(row.fechaVencimiento)}
+                    className="h-10 w-full min-w-36 rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none"
+                  />
+                </td>
                 <td className="px-4 py-5">
                   <div className="inline-flex items-center rounded-lg bg-gray-50 text-sm font-bold text-gray-900">
                     <button onClick={() => updateRow(row.key, 'cantidad', Math.max(1, row.cantidad - 1))} className="px-3 py-2 text-gray-500">−</button>
@@ -358,7 +439,7 @@ export default function EditarRecepcion() {
             ))}
             {sortedRows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={9} className="px-6 py-12 text-center text-sm text-gray-400">
                   No hay medicamentos en este borrador
                 </td>
               </tr>
@@ -381,12 +462,21 @@ export default function EditarRecepcion() {
         </button>
         <button onClick={handleSaveDraft} disabled={saving} className="rounded-xl border border-brand px-5 py-2.5 text-sm font-medium text-brand hover:bg-green-50 disabled:opacity-50">
           {saving ? <Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> : null}
-          Guardar borrador
+          Guardar cambios
         </button>
-        <button onClick={() => setConfirmModalOpen(true)} disabled={saving} className="rounded-xl bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-light disabled:opacity-50">
-          {saving ? <Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> : null}
-          Confirmar e ingresar al stock
-        </button>
+        {estado !== 'CONFIRMADA' && (
+          <button
+            onClick={() => {
+              setSubmitAction(isBorrador ? 'procesar' : 'confirmar');
+              setConfirmModalOpen(true);
+            }}
+            disabled={saving}
+            className="rounded-xl bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-light disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> : null}
+            {isBorrador ? 'Procesar recepción' : 'Confirmar e ingresar stock'}
+          </button>
+        )}
       </div>
 
       {editingRow && (
@@ -436,15 +526,9 @@ export default function EditarRecepcion() {
                 </div>
 
                 <p className="mb-4 mt-10 border-b border-gray-100 pb-3 text-xs font-bold uppercase tracking-widest text-gray-500">Stock</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-600">Cantidad</label>
-                    <input type="number" min={1} value={editingRow.cantidad || ''} onChange={(e) => updateEditingRow('cantidad', Number(e.target.value))} className="h-12 w-full bg-gray-100 px-4 text-lg focus:outline-none" />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-sm font-medium text-gray-600">Precio</label>
-                    <input type="number" min={0} value={editingRow.precio || ''} onChange={(e) => updateEditingRow('precio', Number(e.target.value))} className="h-12 w-full bg-gray-100 px-4 text-lg focus:outline-none" />
-                  </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-600">Cantidad</label>
+                  <input type="number" min={1} value={editingRow.cantidad || ''} onChange={(e) => updateEditingRow('cantidad', Number(e.target.value))} className="h-12 w-full bg-gray-100 px-4 text-lg focus:outline-none" />
                 </div>
               </section>
 
@@ -523,12 +607,14 @@ export default function EditarRecepcion() {
 
       <ConfirmModal
         isOpen={confirmModalOpen}
-        title="Confirmar recepción"
-        description="Esta acción guardará los cambios, procesará la recepción, confirmará lo recibido e ingresará los medicamentos al stock."
-        confirmLabel="Confirmar"
+        title={submitAction === 'procesar' ? 'Procesar recepción' : 'Confirmar recepción'}
+        description={submitAction === 'procesar'
+          ? 'Esta acción guardará los cambios y pasará el borrador a PROCESADA. Requiere remito y todavía no impacta stock.'
+          : 'Esta acción guardará los cambios, confirmará lo recibido e ingresará los medicamentos al stock.'}
+        confirmLabel={submitAction === 'procesar' ? 'Procesar' : 'Confirmar'}
         cancelLabel="Cancelar"
         loading={saving}
-        onConfirm={handleConfirmar}
+        onConfirm={submitAction === 'procesar' ? handleProcesar : handleConfirmar}
         onCancel={() => setConfirmModalOpen(false)}
       />
     </div>

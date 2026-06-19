@@ -104,6 +104,7 @@ const options: swaggerJsdoc.Options = {
           properties: {
             id: { type: 'string', format: 'uuid' },
             proveedorId: { type: 'string', format: 'uuid' },
+            solicitudCompraId: { type: 'string', format: 'uuid', nullable: true, description: 'Orden de compra aprobada que originó la recepción' },
             remito: { type: 'string', nullable: true },
             fechaRecepcion: { type: 'string', format: 'date-time' },
             estado: { type: 'string', enum: ['BORRADOR', 'CONFIRMADA', 'PROCESADA', 'ANULADA'] },
@@ -125,15 +126,15 @@ const options: swaggerJsdoc.Options = {
             cantidad: { type: 'integer' },
             ean: { type: 'string', nullable: true },
             troquel: { type: 'string', nullable: true },
-            lote: { type: 'string' },
-            fechaVencimiento: { type: 'string', format: 'date-time' },
+            lote: { type: 'string', nullable: true },
+            fechaVencimiento: { type: 'string', format: 'date-time', nullable: true },
           },
         },
         SolicitudCompra: {
           type: 'object',
           properties: {
             id: { type: 'string', format: 'uuid' },
-            estado: { type: 'string', enum: ['BORRADOR', 'PENDIENTE', 'ENVIADA', 'APROBADA', 'RECHAZADA'] },
+            estado: { type: 'string', enum: ['BORRADOR', 'PENDIENTE', 'ENVIADA', 'APROBADA', 'EN_RECEPCION', 'RECHAZADA'] },
             prioridad: { type: 'string', enum: ['BAJA', 'NORMAL', 'ALTA', 'URGENTE'] },
             motivo: { type: 'string', nullable: true },
             observaciones: { type: 'string', nullable: true },
@@ -798,7 +799,8 @@ const options: swaggerJsdoc.Options = {
         },
         post: {
           tags: ['Recepciones'],
-          summary: 'Crear recepción en estado BORRADOR',
+          summary: 'Crear recepción manual en estado PROCESADA',
+          description: 'Registra una recepción pendiente de confirmación. No impacta stock hasta llamar a /recepciones/{id}/confirmar.',
           requestBody: {
             required: true,
             content: {
@@ -816,7 +818,7 @@ const options: swaggerJsdoc.Options = {
                       minItems: 1,
                       items: {
                         type: 'object',
-                        required: ['productoId', 'cantidad', 'lote', 'fechaVencimiento'],
+                        required: ['productoId', 'cantidad'],
                         properties: {
                           productoId: { type: 'string', format: 'uuid' },
                           cantidad: { type: 'integer', minimum: 1 },
@@ -838,6 +840,19 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
+      '/recepciones/desde-orden-compra/{solicitudId}': {
+        post: {
+          tags: ['Recepciones'],
+          summary: 'Generar recepción desde orden de compra aprobada',
+          description: 'Crea o devuelve una recepción BORRADOR vinculada a una solicitud de compra APROBADA. La cantidad viene precargada desde la orden y se puede modificar; EAN, troquel, lote y vencimiento se completan manualmente antes de procesar.',
+          parameters: [{ name: 'solicitudId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '201': { description: 'Recepción generada o existente', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Recepcion' } } } } } },
+            '400': { description: 'La orden no está aprobada o no tiene proveedor', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'Orden de compra no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
       '/recepciones/{id}': {
         get: {
           tags: ['Recepciones'],
@@ -850,7 +865,7 @@ const options: swaggerJsdoc.Options = {
         },
         put: {
           tags: ['Recepciones'],
-          summary: 'Actualizar recepción en estado BORRADOR',
+          summary: 'Actualizar recepción en estado BORRADOR o PROCESADA',
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
           requestBody: {
             required: true,
@@ -885,6 +900,7 @@ const options: swaggerJsdoc.Options = {
         put: {
           tags: ['Recepciones'],
           summary: 'Confirmar recepción',
+          description: 'Confirma una recepción PROCESADA, valida remito/lote/vencimiento e impacta stock y lotes. Persiste el estado CONFIRMADA.',
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
           responses: {
             '200': { description: 'Recepción confirmada', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Recepcion' } } } } } },
@@ -895,10 +911,11 @@ const options: swaggerJsdoc.Options = {
       '/recepciones/{id}/procesar': {
         put: {
           tags: ['Recepciones'],
-          summary: 'Procesar recepción e impactar stock',
+          summary: 'Procesar recepción BORRADOR a PROCESADA',
+          description: 'Pasa una recepción BORRADOR a PROCESADA. Valida remito, producto, EAN, troquel, cantidad, lote y vencimiento. No impacta stock; el impacto ocurre al confirmar.',
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
           responses: {
-            '200': { description: 'Recepción procesada y stock actualizado', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Recepcion' } } } } } },
+            '200': { description: 'Recepción procesada sin impacto de stock', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Recepcion' } } } } } },
             '400': { description: 'Estado inválido para procesar', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
           },
         },
@@ -920,7 +937,7 @@ const options: swaggerJsdoc.Options = {
           tags: ['Solicitudes de Compra'],
           summary: 'Listar solicitudes de compra',
           parameters: [
-            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['BORRADOR', 'PENDIENTE', 'ENVIADA', 'APROBADA', 'RECHAZADA'] } },
+            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['BORRADOR', 'PENDIENTE', 'ENVIADA', 'APROBADA', 'EN_RECEPCION', 'RECHAZADA'] } },
             { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
             { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
           ],

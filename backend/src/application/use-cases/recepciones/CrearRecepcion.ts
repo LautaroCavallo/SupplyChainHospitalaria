@@ -17,8 +17,10 @@ export class CrearRecepcion {
 
     const result = await this.recepcionRepository.create({
       proveedorId: dto.proveedorId,
+      solicitudCompraId: dto.solicitudCompraId,
       remito: dto.remito,
       fechaRecepcion: dto.fechaRecepcion ? new Date(dto.fechaRecepcion) : undefined,
+      estado: 'PROCESADA',
       observaciones: dto.observaciones,
       usuarioId,
       detalles: dto.detalles.map(d => ({
@@ -27,7 +29,7 @@ export class CrearRecepcion {
         ean: d.ean,
         troquel: d.troquel,
         lote: d.lote,
-        fechaVencimiento: new Date(d.fechaVencimiento),
+        fechaVencimiento: d.fechaVencimiento ? new Date(d.fechaVencimiento) : undefined,
       })),
     });
     return result as unknown as RecepcionResponseDTO;

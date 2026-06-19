@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Eye, Filter, Download, Loader2, Send, Check, Pencil, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Eye, Filter, Download, Loader2, Send, Check, Pencil, X, PackagePlus } from 'lucide-react';
 import { getCompras, getAlertasCompras, enviarOrdenCompra, confirmarBorrador, eliminarCompra } from '../api/compras';
+import { crearRecepcionDesdeOrdenCompra } from '../api/recepciones';
 import ConfirmModal from '../components/common/ConfirmModal';
 import type { SolicitudCompra, AlertaStockCritico, PaginatedResponse } from '../types';
 import Badge from '../components/common/Badge';
@@ -15,6 +17,7 @@ import { applySortDirection, compareDate, compareNumber, compareText, nextSortDi
 const estadoBadge: Record<string, { label: string; variant: 'success' | 'warning' | 'info' | 'default' | 'danger' }> = {
   BORRADOR:  { label: 'Borrador',  variant: 'default' },
   APROBADA:  { label: 'Aprobada',  variant: 'success' },
+  EN_RECEPCION: { label: 'En recepción', variant: 'info' },
   PENDIENTE: { label: 'Pendiente', variant: 'warning' },
   RECHAZADA: { label: 'Rechazada', variant: 'danger' },
   ENVIADA:   { label: 'Enviada',   variant: 'info' },
@@ -25,6 +28,7 @@ const tabs = [
   { label: 'BORRADORES', value: 'BORRADOR' },
   { label: 'PENDIENTES', value: 'PENDIENTE' },
   { label: 'APROBADAS', value: 'APROBADA' },
+  { label: 'EN RECEPCIÓN', value: 'EN_RECEPCION' },
   { label: 'ENVIADAS', value: 'ENVIADA' },
 ];
 
@@ -34,11 +38,25 @@ const estadoSortOrder: Record<string, number> = {
   BORRADOR: 0,
   PENDIENTE: 1,
   APROBADA: 2,
-  ENVIADA: 3,
-  RECHAZADA: 4,
+  EN_RECEPCION: 3,
+  ENVIADA: 4,
+  RECHAZADA: 5,
 };
 
+function getProveedorSolicitud(s: SolicitudCompra): string {
+  return s.proveedorAdjudicadoRazonSocial
+    ?? s.proveedorNombre
+    ?? s.proveedorSugerido?.razonSocial
+    ?? '—';
+}
+
+function getEstadoSolicitud(s: SolicitudCompra): string {
+  if (s.estado === 'APROBADA' && s.recepcion) return 'EN_RECEPCION';
+  return s.estado;
+}
+
 export default function Compras() {
+  const navigate = useNavigate();
   const [data, setData] = useState<PaginatedResponse<SolicitudCompra> | null>(null);
   const [alertas, setAlertas] = useState<AlertaStockCritico[]>([]);
   const [page, setPage] = useState(1);
@@ -54,6 +72,7 @@ export default function Compras() {
     direction: 'desc',
   });
   const [enviando, setEnviando] = useState<string | null>(null);
+  const [generandoRecepcion, setGenerandoRecepcion] = useState<string | null>(null);
   const [borradorAEliminar, setBorradorAEliminar] = useState<SolicitudCompra | null>(null);
   const [eliminando, setEliminando] = useState(false);
 
@@ -82,9 +101,9 @@ export default function Compras() {
 
       if (sort.key === 'id') result = compareText(a.id, b.id);
       if (sort.key === 'fecha') result = compareDate(a.fechaSolicitud ?? a.createdAt, b.fechaSolicitud ?? b.createdAt);
-      if (sort.key === 'proveedor') result = compareText(a.proveedorNombre, b.proveedorNombre);
+      if (sort.key === 'proveedor') result = compareText(getProveedorSolicitud(a), getProveedorSolicitud(b));
       if (sort.key === 'items') result = compareNumber(a.detalles.length, b.detalles.length);
-      if (sort.key === 'estado') result = (estadoSortOrder[a.estado] ?? 99) - (estadoSortOrder[b.estado] ?? 99);
+      if (sort.key === 'estado') result = (estadoSortOrder[getEstadoSolicitud(a)] ?? 99) - (estadoSortOrder[getEstadoSolicitud(b)] ?? 99);
 
       return applySortDirection(result, sort.direction);
     });
@@ -131,6 +150,18 @@ export default function Compras() {
       setEliminando(false);
     }
   };
+
+  const handleGenerarRecepcion = useCallback(async (id: string) => {
+    try {
+      setGenerandoRecepcion(id);
+      const recepcion = await crearRecepcionDesdeOrdenCompra(id);
+      navigate(`/recepciones/${recepcion.id}/editar`);
+    } catch {
+      // graceful
+    } finally {
+      setGenerandoRecepcion(null);
+    }
+  }, [navigate]);
 
   const handleRowClick = (s: SolicitudCompra) => {
     if (s.estado === 'BORRADOR') {
@@ -197,12 +228,13 @@ export default function Compras() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {sortedSolicitudes.map((s) => {
-                  const badge = estadoBadge[s.estado] ?? { label: s.estado, variant: 'default' as const };
+                  const estadoActual = getEstadoSolicitud(s);
+                  const badge = estadoBadge[estadoActual] ?? { label: estadoActual, variant: 'default' as const };
                   return (
                     <tr key={s.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleRowClick(s)}>
                       <td className="px-6 py-4 text-sm font-semibold text-brand">{s.id}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{s.fechaSolicitud ?? s.createdAt?.slice(0, 10)}</td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{s.proveedorNombre ?? '—'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{getProveedorSolicitud(s)}</td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-900">
                         {String(s.detalles.length).padStart(2, '0')}
                       </td>
@@ -246,6 +278,30 @@ export default function Compras() {
                                 : <Send className="h-3.5 w-3.5" />
                               }
                               Enviar
+                            </button>
+                          )}
+                          {estadoActual === 'APROBADA' && (
+                            <button
+                              disabled={generandoRecepcion === s.id}
+                              onClick={() => handleGenerarRecepcion(s.id)}
+                              title="Generar recepción"
+                              className="flex h-8 items-center gap-1.5 rounded-lg bg-brand px-2.5 text-xs font-semibold text-white hover:bg-brand-light disabled:opacity-50"
+                            >
+                              {generandoRecepcion === s.id
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <PackagePlus className="h-3.5 w-3.5" />
+                              }
+                              Recepción
+                            </button>
+                          )}
+                          {estadoActual === 'EN_RECEPCION' && s.recepcion && (
+                            <button
+                              onClick={() => navigate(`/recepciones/${s.recepcion?.id}/editar`)}
+                              title="Ver recepción generada"
+                              className="flex h-8 items-center gap-1.5 rounded-lg border border-brand px-2.5 text-xs font-semibold text-brand hover:bg-green-50"
+                            >
+                              <PackagePlus className="h-3.5 w-3.5" />
+                              Ver recepción
                             </button>
                           )}
                           <button

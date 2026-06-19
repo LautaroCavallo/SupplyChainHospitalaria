@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ListarRecepciones } from '../../../application/use-cases/recepciones/ListarRecepciones';
 import { ObtenerRecepcion } from '../../../application/use-cases/recepciones/ObtenerRecepcion';
 import { CrearRecepcion } from '../../../application/use-cases/recepciones/CrearRecepcion';
+import { CrearRecepcionDesdeOrdenCompra } from '../../../application/use-cases/recepciones/CrearRecepcionDesdeOrdenCompra';
 import { ActualizarRecepcion } from '../../../application/use-cases/recepciones/ActualizarRecepcion';
 import { ConfirmarRecepcion } from '../../../application/use-cases/recepciones/ConfirmarRecepcion';
 import { ProcesarRecepcion } from '../../../application/use-cases/recepciones/ProcesarRecepcion';
@@ -11,6 +12,7 @@ export class RecepcionController {
     private listarRecepciones: ListarRecepciones,
     private obtenerRecepcion: ObtenerRecepcion,
     private crearRecepcion: CrearRecepcion,
+    private crearRecepcionDesdeOrdenCompra: CrearRecepcionDesdeOrdenCompra,
     private actualizarRecepcion: ActualizarRecepcion,
     private confirmarRecepcion: ConfirmarRecepcion,
     private procesarRecepcion: ProcesarRecepcion,
@@ -41,6 +43,18 @@ export class RecepcionController {
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const data = await this.crearRecepcion.execute(req.body, req.user?.nombre ?? req.user?.id);
+      res.status(201).json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createFromOrdenCompra = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const data = await this.crearRecepcionDesdeOrdenCompra.execute(
+        req.params.solicitudId as string,
+        req.user?.nombre ?? req.user?.id,
+      );
       res.status(201).json({ success: true, data });
     } catch (error) {
       next(error);

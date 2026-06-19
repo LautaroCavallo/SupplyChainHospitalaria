@@ -5,6 +5,7 @@ import { SolicitudCompra } from '../../../domain/entities/SolicitudCompra';
 const solicitudInclude = {
   detalles: { include: { producto: true } },
   proveedorSugerido: true,
+  recepcion: { select: { id: true, estado: true } },
 } as const;
 
 export class PrismaSolicitudCompraRepository implements ISolicitudCompraRepository {

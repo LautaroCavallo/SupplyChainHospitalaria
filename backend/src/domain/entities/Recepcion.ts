@@ -7,8 +7,8 @@ export class RecepcionDetalle {
   readonly cantidad: number;
   readonly ean?: string;
   readonly troquel?: string;
-  readonly lote: string;
-  readonly fechaVencimiento: Date;
+  readonly lote?: string;
+  readonly fechaVencimiento?: Date;
 
   constructor(props: {
     id: string;
@@ -17,8 +17,8 @@ export class RecepcionDetalle {
     cantidad: number;
     ean?: string;
     troquel?: string;
-    lote: string;
-    fechaVencimiento: Date;
+    lote?: string;
+    fechaVencimiento?: Date;
   }) {
     this.id = props.id;
     this.recepcionId = props.recepcionId;
@@ -45,6 +45,7 @@ export class RecepcionDetalle {
 export class Recepcion {
   readonly id: string;
   proveedorId: string;
+  solicitudCompraId?: string;
   remito?: string;
   fechaRecepcion: Date;
   estado: EstadoRecepcion;
@@ -58,6 +59,7 @@ export class Recepcion {
   constructor(props: {
     id: string;
     proveedorId: string;
+    solicitudCompraId?: string;
     remito?: string;
     fechaRecepcion?: Date;
     estado?: EstadoRecepcion;
@@ -70,6 +72,7 @@ export class Recepcion {
   }) {
     this.id = props.id;
     this.proveedorId = props.proveedorId;
+    this.solicitudCompraId = props.solicitudCompraId;
     this.remito = props.remito;
     this.fechaRecepcion = props.fechaRecepcion ?? new Date();
     this.estado = props.estado ?? 'BORRADOR';

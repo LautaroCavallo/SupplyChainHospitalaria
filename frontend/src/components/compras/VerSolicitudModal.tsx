@@ -26,6 +26,7 @@ function MedIcon({ name }: { name: string }) {
 
 const estadoBadge: Record<string, { label: string; variant: 'success' | 'warning' | 'info' | 'default' }> = {
   APROBADA:  { label: 'Aprobada',  variant: 'success' },
+  EN_RECEPCION: { label: 'En recepción', variant: 'info' },
   PENDIENTE: { label: 'Pendiente', variant: 'warning' },
   RECHAZADA: { label: 'Rechazada', variant: 'default' },
   ENVIADA:   { label: 'Enviada',   variant: 'info' },
@@ -37,6 +38,11 @@ const prioridadLabel: Record<string, string> = {
   ALTA: 'Alta',
   URGENTE: 'Urgente',
 };
+
+function getEstadoSolicitud(s: SolicitudCompra): string {
+  if (s.estado === 'APROBADA' && s.recepcion) return 'EN_RECEPCION';
+  return s.estado;
+}
 
 export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefresh }: Props) {
   const [enviando, setEnviando] = useState(false);
@@ -64,7 +70,8 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
       ? new Date(data.createdAt).toLocaleDateString('es-AR')
       : '—';
 
-  const badge = estadoBadge[data.estado] ?? { label: data.estado, variant: 'default' as const };
+  const estadoActual = getEstadoSolicitud(data);
+  const badge = estadoBadge[estadoActual] ?? { label: estadoActual, variant: 'default' as const };
 
   const handleEnviar = async () => {
     try {
@@ -79,7 +86,8 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
     }
   };
 
-  const totalOC = data.estado === 'APROBADA'
+  const tieneAdjudicacion = estadoActual === 'APROBADA' || estadoActual === 'EN_RECEPCION';
+  const totalOC = tieneAdjudicacion
     ? data.detalles.reduce((acc, d) => {
         const cant = d.cantidadAprobada ?? d.cantidadSolicitada;
         const precio = d.precioUnitario ?? 0;
@@ -200,8 +208,8 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
                 </section>
               )}
 
-              {/* ── Sección 2: Adjudicación de Compras (solo APROBADA) ──────── */}
-              {data.estado === 'APROBADA' && (
+              {/* ── Sección 2: Adjudicación de Compras ─────────────────────── */}
+              {tieneAdjudicacion && (
                 <section>
                   <div className="flex items-center gap-2 mb-4">
                     <CheckCircle className="h-5 w-5 text-green-600" />

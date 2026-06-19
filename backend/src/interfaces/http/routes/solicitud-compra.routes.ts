@@ -18,7 +18,7 @@ export function solicitudCompraRoutes(container: Container): Router {
   );
 
   router.get('/',
-    query('estado').optional().isIn(['BORRADOR', 'PENDIENTE', 'APROBADA', 'RECHAZADA', 'ENVIADA']),
+    query('estado').optional().isIn(['BORRADOR', 'PENDIENTE', 'APROBADA', 'EN_RECEPCION', 'RECHAZADA', 'ENVIADA']),
     validateRequest,
     controller.list,
   );

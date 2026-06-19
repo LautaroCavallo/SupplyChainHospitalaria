@@ -210,6 +210,13 @@ export default function Recepciones() {
                           ) : r.estado === 'PROCESADA' ? (
                             <>
                               <button
+                                onClick={() => navigate(`/recepciones/${r.id}/editar`)}
+                                title="Editar recepción"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
                                 onClick={() => handleConfirmRecepcion(r)}
                                 disabled={processingId === r.id}
                                 title="Confirmar e ingresar al stock"

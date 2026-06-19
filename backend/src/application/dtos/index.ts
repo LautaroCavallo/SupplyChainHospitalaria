@@ -108,6 +108,7 @@ export interface MovimientoResponseDTO {
 
 export interface CrearRecepcionDTO {
   proveedorId: string;
+  solicitudCompraId?: string;
   remito?: string;
   fechaRecepcion: string;
   observaciones?: string;
@@ -119,13 +120,14 @@ export interface CrearRecepcionDetalleDTO {
   cantidad: number;
   ean?: string;
   troquel?: string;
-  lote: string;
-  fechaVencimiento: string;
+  lote?: string;
+  fechaVencimiento?: string;
 }
 
 export interface RecepcionResponseDTO {
   id: string;
   proveedorId: string;
+  solicitudCompraId?: string | null;
   proveedor?: { id: string; razonSocial: string };
   remito?: string | null;
   fechaRecepcion: Date;
@@ -143,8 +145,8 @@ export interface RecepcionDetalleResponseDTO {
   cantidad: number;
   ean?: string | null;
   troquel?: string | null;
-  lote: string;
-  fechaVencimiento: Date;
+  lote?: string | null;
+  fechaVencimiento?: Date | null;
 }
 
 export interface FiltroRecepcionDTO extends PaginacionDTO {

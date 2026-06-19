@@ -1,4 +1,4 @@
-export type EstadoSolicitud = 'BORRADOR' | 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ENVIADA';
+export type EstadoSolicitud = 'BORRADOR' | 'PENDIENTE' | 'APROBADA' | 'EN_RECEPCION' | 'RECHAZADA' | 'ENVIADA';
 export type PrioridadSolicitud = 'BAJA' | 'NORMAL' | 'ALTA' | 'URGENTE';
 
 export class SolicitudCompraDetalle {
