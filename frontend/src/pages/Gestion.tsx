@@ -18,8 +18,7 @@ type ProvSortKey = 'razonSocial' | 'contacto' | 'telefono' | 'email' | 'activo';
 
 const medEstadoSortOrder: Record<string, number> = {
   ACTIVO: 0,
-  SUSPENDIDO: 1,
-  INACTIVO: 2,
+  INACTIVO: 1,
 };
 
 function getInitials(name: string): string {
@@ -78,6 +77,8 @@ export default function Gestion() {
   }, [medPage, provPage, medBusqueda, medCategoria, medEstado, provBusqueda]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setMedPage(1); }, [medBusqueda, medCategoria, medEstado]);
+  useEffect(() => { setProvPage(1); }, [provBusqueda, provEstado]);
 
   const handleDeleteMed = async (id: string) => {
     setConfirmDeleteMedId(id);
@@ -210,7 +211,6 @@ export default function Gestion() {
             <option value="">Estado</option>
             <option value="ACTIVO">Activo</option>
             <option value="INACTIVO">Inactivo</option>
-            <option value="SUSPENDIDO">Suspendido</option>
           </select>
         </div>
 
@@ -251,7 +251,7 @@ export default function Gestion() {
                         <td className="px-6 py-3">
                           <Badge
                             label={m.estado}
-                            variant={m.estado === 'ACTIVO' ? 'success' : m.estado === 'INACTIVO' ? 'default' : 'warning'}
+                            variant={m.estado === 'ACTIVO' ? 'success' : 'default'}
                           />
                         </td>
                         <td className="px-6 py-3">

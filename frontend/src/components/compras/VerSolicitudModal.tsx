@@ -298,9 +298,13 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-gray-200 bg-white px-8 py-4 sticky bottom-0">
-          <button onClick={onClose} className="text-sm font-medium text-gray-500 hover:text-gray-700">
-            Cancelar
-          </button>
+          {(data.estado === 'BORRADOR' || data.estado === 'PENDIENTE') ? (
+            <button onClick={onClose} className="text-sm font-medium text-gray-500 hover:text-gray-700">
+              Cancelar
+            </button>
+          ) : (
+            <span />
+          )}
           <div className="flex items-center gap-3">
             {data.estado === 'PENDIENTE' && (
               <button
@@ -315,7 +319,7 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
                 Enviar a Compras
               </button>
             )}
-            {(data.estado === 'APROBADA' || data.estado === 'RECHAZADA') && (
+            {data.estado !== 'BORRADOR' && data.estado !== 'PENDIENTE' && (
               <button
                 onClick={onClose}
                 className="rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-light"

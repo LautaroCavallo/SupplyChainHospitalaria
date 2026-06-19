@@ -6,6 +6,7 @@ import type { MovimientoLote, PaginatedResponse, TipoMovimiento } from '../types
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import FilterTabs from '../components/common/FilterTabs';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 const tipoBadge: Record<TipoMovimiento, { label: string; variant: 'success' | 'danger' | 'warning' | 'info' | 'default' }> = {
@@ -142,22 +143,22 @@ export default function HistorialLote() {
         <p className="mt-1 text-sm text-gray-500">Historial de movimientos del lote</p>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-5 flex items-center gap-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => { setTipoFilter(tab.value); setPage(1); }}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-              tipoFilter === tab.value
-                ? 'bg-brand text-white'
-                : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-        <div className="ml-auto flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">
+      {/* Tabs & Filters */}
+      <div
+        className="mb-5 flex items-center justify-between"
+        style={{
+          backgroundColor: '#F8FAFC',
+          border: '1px solid rgba(192, 201, 194, 0.2)',
+          borderRadius: '48px',
+          padding: '8px 24px',
+        }}
+      >
+        <FilterTabs
+          tabs={tabs}
+          active={tipoFilter}
+          onChange={(v) => { setTipoFilter(v); setPage(1); }}
+        />
+        <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm text-gray-500">
           <Calendar className="h-4 w-4 text-gray-400" />
           <label className="flex items-center gap-1 text-xs text-gray-400">
             Desde

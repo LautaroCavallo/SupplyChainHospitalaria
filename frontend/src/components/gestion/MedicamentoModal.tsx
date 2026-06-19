@@ -13,7 +13,7 @@ interface Props {
 const categorias = ['Analgésicos', 'Antibióticos', 'Cardiología', 'Endocrinología', 'Anestesia', 'Jarabe', 'Otro'];
 const laboratorios = ['PharmaCore S.A.', 'NaturaPharma', 'BioMed', 'Laboratorio Central S.A.', 'Roemmers', 'Bayer', 'Otro'];
 
-type Estado = 'ACTIVO' | 'INACTIVO' | 'SUSPENDIDO';
+type Estado = 'ACTIVO' | 'INACTIVO';
 
 export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props) {
   const isEdit = !!medicamento;
@@ -77,8 +77,12 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
   const estadoOptions: { value: Estado; label: string }[] = [
     { value: 'ACTIVO', label: 'Activo' },
     { value: 'INACTIVO', label: 'Inactivo' },
-    { value: 'SUSPENDIDO', label: 'Suspendido' },
   ];
+
+  // Incluir el laboratorio guardado en las opciones (puede no estar en la lista fija)
+  const laboratorioOptions = laboratorio && !laboratorios.includes(laboratorio)
+    ? [laboratorio, ...laboratorios]
+    : laboratorios;
 
   const inputCls = 'h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20';
   const selectCls = 'h-11 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-900 focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/20 appearance-none';
@@ -175,7 +179,7 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
                   <div className="relative">
                     <select value={laboratorio} onChange={(e) => setLaboratorio(e.target.value)} className={selectCls}>
                       <option value="">Seleccionar...</option>
-                      {laboratorios.map((l) => <option key={l} value={l}>{l}</option>)}
+                      {laboratorioOptions.map((l) => <option key={l} value={l}>{l}</option>)}
                     </select>
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
                   </div>
@@ -202,7 +206,7 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
                 <MoreHorizontal className="h-3.5 w-3.5" />
                 Estado del Producto
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 pr-2">
                 {estadoOptions.map(({ value, label }) => (
                   <button
                     key={value}
@@ -227,22 +231,10 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
                 <MoreHorizontal className="h-3.5 w-3.5" />
                 Información Adicional
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Laboratorio (detalle)</label>
-                  <div className="relative">
-                    <select value={laboratorio} onChange={(e) => setLaboratorio(e.target.value)} className={selectCls}>
-                      <option value="">Seleccionar...</option>
-                      {laboratorios.map((l) => <option key={l} value={l}>{l}</option>)}
-                    </select>
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">▾</span>
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Observaciones</label>
-                  <input type="text" value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
-                    placeholder="Ej: Mantener en lugar fresco y seco." className={inputCls} />
-                </div>
+              <div>
+                <label className={labelCls}>Observaciones</label>
+                <input type="text" value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
+                  placeholder="Ej: Mantener en lugar fresco y seco." className={inputCls} />
               </div>
             </div>
           </div>

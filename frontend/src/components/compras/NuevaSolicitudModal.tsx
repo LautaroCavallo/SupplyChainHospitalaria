@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Calendar, Trash2, Loader2, Pill, Beaker, Search } from 'lucide-react';
-import { crearCompra } from '../../api/compras';
+import { crearCompra, actualizarCompra, confirmarBorrador } from '../../api/compras';
 import { getInventario } from '../../api/inventario';
-import type { ProductoInventario } from '../../types';
+import ConfirmModal from '../common/ConfirmModal';
+import type { ProductoInventario, AlertaStockCritico, SolicitudCompra } from '../../types';
 
 interface SolicitudRow {
   key: number;
@@ -17,6 +18,32 @@ interface SolicitudRow {
 
 function emptyRow(key: number): SolicitudRow {
   return { key, productoId: '', nombreProducto: '', proveedor: '', motivo: 'Stock Critico', stockActual: 0, stockMin: 0, cantSolicitada: 1 };
+}
+
+function rowFromAlerta(key: number, a: AlertaStockCritico): SolicitudRow {
+  return {
+    key,
+    productoId: a.productoId,
+    nombreProducto: a.nombre,
+    proveedor: a.proveedorNombre ?? '',
+    motivo: 'Stock Critico',
+    stockActual: a.stockActual,
+    stockMin: a.stockMinimo,
+    cantSolicitada: Math.max(1, a.stockMinimo - a.stockActual),
+  };
+}
+
+function rowsFromSolicitud(s: SolicitudCompra): SolicitudRow[] {
+  return s.detalles.map((d, i) => ({
+    key: i + 1,
+    productoId: d.productoId ?? d.producto?.id ?? '',
+    nombreProducto: d.producto?.nombre ?? d.nombreProducto ?? '',
+    proveedor: d.nombreProveedor ?? '',
+    motivo: d.motivo ?? 'Stock Critico',
+    stockActual: d.producto?.stockActual ?? d.stockActual ?? 0,
+    stockMin: d.producto?.stockMinimo ?? d.stockMinimo ?? 0,
+    cantSolicitada: d.cantidadSolicitada,
+  }));
 }
 
 const motivos = ['Stock Critico', 'Reposición Mensual', 'Demanda aumentada', 'Reposición rutinaria', 'Otro'];
@@ -133,9 +160,12 @@ function ProductoAutocomplete({ value, displayValue, onChange }: ProductoAutocom
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  prefill?: AlertaStockCritico | null;
+  solicitud?: SolicitudCompra | null;
 }
 
-export default function NuevaSolicitudModal({ isOpen, onClose }: Props) {
+export default function NuevaSolicitudModal({ isOpen, onClose, prefill, solicitud }: Props) {
+  const isEditMode = !!solicitud;
   const [fecha] = useState(() =>
     new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
   );
@@ -143,7 +173,26 @@ export default function NuevaSolicitudModal({ isOpen, onClose }: Props) {
   const [rows, setRows] = useState<SolicitudRow[]>([emptyRow(1)]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const nextKey = useRef(2);
+
+  // Precargar las filas al abrir el modal (edición, alerta, o vacío)
+  useEffect(() => {
+    if (isOpen) {
+      if (solicitud) {
+        const initial = rowsFromSolicitud(solicitud);
+        setRows(initial.length ? initial : [emptyRow(1)]);
+        nextKey.current = (initial.length || 1) + 1;
+        setObservaciones(solicitud.observaciones ?? '');
+      } else if (prefill) {
+        setRows([rowFromAlerta(1, prefill)]);
+        nextKey.current = 2;
+      } else {
+        setRows([emptyRow(1)]);
+        nextKey.current = 2;
+      }
+    }
+  }, [isOpen, prefill, solicitud]);
 
   const updateRow = (key: number, fields: Partial<SolicitudRow>) =>
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...fields } : r)));
@@ -151,36 +200,53 @@ export default function NuevaSolicitudModal({ isOpen, onClose }: Props) {
   const addRow = () => setRows((prev) => [...prev, emptyRow(nextKey.current++)]);
   const removeRow = (key: number) => setRows((prev) => prev.length > 1 ? prev.filter((r) => r.key !== key) : prev);
 
-  const handleConfirmar = async () => {
+  const guardar = async (estado: 'PENDIENTE' | 'BORRADOR') => {
     const validos = rows.filter((r) => r.productoId && r.cantSolicitada > 0);
     if (!validos.length) { setError('Agregá al menos un medicamento válido del inventario'); return; }
 
+    const detalles = validos.map((r) => ({
+      productoId: r.productoId,
+      nombreProducto: r.nombreProducto,
+      proveedorId: undefined,
+      nombreProveedor: r.proveedor,
+      motivo: r.motivo,
+      stockActual: r.stockActual,
+      stockMinimo: r.stockMin,
+      cantidadSolicitada: r.cantSolicitada,
+    }));
+
     try {
       setSaving(true); setError(null);
-      await crearCompra({
-        observaciones,
-        detalles: validos.map((r) => ({
-          productoId: r.productoId,
-          nombreProducto: r.nombreProducto,
-          proveedorId: undefined,
-          nombreProveedor: r.proveedor,
-          motivo: r.motivo,
-          stockActual: r.stockActual,
-          stockMinimo: r.stockMin,
-          cantidadSolicitada: r.cantSolicitada,
-        })),
-      });
+      if (isEditMode && solicitud) {
+        // Actualizar el borrador existente
+        await actualizarCompra(solicitud.id, { observaciones, detalles });
+        // Si se confirma, hacer la transición BORRADOR → PENDIENTE
+        if (estado === 'PENDIENTE') {
+          await confirmarBorrador(solicitud.id);
+        }
+      } else {
+        await crearCompra({ estado, observaciones, detalles });
+      }
       onClose();
-    } catch { setError('Error al crear la solicitud'); }
+    } catch { setError(estado === 'BORRADOR' ? 'Error al guardar el borrador' : 'Error al guardar la solicitud'); }
     finally { setSaving(false); }
   };
+
+  const handleConfirmar = () => guardar('PENDIENTE');
+  const handleGuardarBorrador = () => guardar('BORRADOR');
 
   const handleClose = () => {
     setRows([emptyRow(1)]);
     setObservaciones('');
     setError(null);
+    setConfirmCancel(false);
     onClose();
   };
+
+  // Al cancelar: pedir confirmación. Como los cambios son locales (no se
+  // persisten hasta guardar), cerrar descarta la edición y el borrador
+  // queda como estaba originalmente.
+  const requestCancel = () => setConfirmCancel(true);
 
   if (!isOpen) return null;
 
@@ -190,17 +256,23 @@ export default function NuevaSolicitudModal({ isOpen, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={requestCancel} />
       <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl bg-[#f5f7f5] shadow-2xl">
 
         {/* Title */}
         <div className="px-8 pt-8 pb-6">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="font-serif text-3xl font-bold text-brand">Nueva solicitud de compra</h2>
-              <p className="mt-1 text-sm text-gray-500">Complete los datos para solicitar reposición de medicamentos</p>
+              <h2 className="font-serif text-3xl font-bold text-brand">
+                {isEditMode ? 'Editar borrador' : 'Nueva solicitud de compra'}
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {isEditMode
+                  ? 'Modifique los medicamentos del borrador antes de confirmarlo'
+                  : 'Complete los datos para solicitar reposición de medicamentos'}
+              </p>
             </div>
-            <button onClick={handleClose} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-200">
+            <button onClick={requestCancel} className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-200">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -276,18 +348,14 @@ export default function NuevaSolicitudModal({ isOpen, onClose }: Props) {
                     </select>
                     <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">▾</span>
                   </div>
-                  {/* S. Actual */}
-                  <input type="number" min={0}
-                    value={row.stockActual || ''}
-                    onChange={(e) => updateRow(row.key, { stockActual: Number(e.target.value) })}
-                    className="h-8 w-full rounded-lg border border-gray-200 bg-white px-1 text-center text-sm text-gray-700 focus:border-brand focus:outline-none"
-                  />
-                  {/* S. Mín */}
-                  <input type="number" min={0}
-                    value={row.stockMin || ''}
-                    onChange={(e) => updateRow(row.key, { stockMin: Number(e.target.value) })}
-                    className={`h-8 w-full rounded-lg border px-1 text-center text-sm font-bold focus:outline-none ${isCritical ? 'border-red-200 text-red-600' : 'border-gray-200 text-gray-700 focus:border-brand'}`}
-                  />
+                  {/* S. Actual (solo lectura) */}
+                  <div className="flex h-8 w-full items-center justify-center rounded-lg border border-gray-200 bg-gray-50 px-1 text-center text-sm text-gray-700">
+                    {row.stockActual || '—'}
+                  </div>
+                  {/* S. Mín (solo lectura) */}
+                  <div className={`flex h-8 w-full items-center justify-center rounded-lg border px-1 text-center text-sm font-bold ${isCritical ? 'border-red-200 bg-red-50 text-red-600' : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
+                    {row.stockMin || '—'}
+                  </div>
                   {/* Cant. solicitada */}
                   <div className="flex items-center gap-1">
                     <input type="number" min={1}
@@ -321,12 +389,13 @@ export default function NuevaSolicitudModal({ isOpen, onClose }: Props) {
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-gray-200 bg-white px-8 py-4">
-          <button onClick={handleClose} className="text-sm font-medium text-gray-500 hover:text-gray-700">
+          <button onClick={requestCancel} className="text-sm font-medium text-gray-500 hover:text-gray-700">
             Cancelar
           </button>
           <div className="flex items-center gap-3">
-            <button className="rounded-full border border-brand px-6 py-2.5 text-sm font-semibold text-brand hover:bg-green-50">
-              Guardar borrador
+            <button onClick={handleGuardarBorrador} disabled={saving}
+              className="rounded-full border border-brand px-6 py-2.5 text-sm font-semibold text-brand hover:bg-green-50 disabled:opacity-50">
+              {isEditMode ? 'Guardar cambios' : 'Guardar borrador'}
             </button>
             <button onClick={handleConfirmar} disabled={saving}
               className="flex items-center gap-2 rounded-full bg-brand px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-light disabled:opacity-50">
@@ -336,6 +405,21 @@ export default function NuevaSolicitudModal({ isOpen, onClose }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Confirmación de cancelar */}
+      <ConfirmModal
+        isOpen={confirmCancel}
+        title="¿Cancelar y descartar los cambios?"
+        description={
+          isEditMode
+            ? 'Los cambios no guardados se perderán y el borrador quedará como estaba originalmente.'
+            : 'La solicitud no se guardará y se perderán los datos ingresados.'
+        }
+        confirmLabel="Sí, descartar"
+        cancelLabel="Seguir editando"
+        onConfirm={handleClose}
+        onCancel={() => setConfirmCancel(false)}
+      />
     </div>
   );
 }

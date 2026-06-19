@@ -15,6 +15,7 @@ export class ListarInventario {
     const { estado, page, limit, ...repoFiltros } = filtros;
     const productos = await this.inventarioRepository.findAll({
       ...repoFiltros,
+      activo: true,
       nivelStock: estado as any,
       page: 1,
       limit: 10000,
