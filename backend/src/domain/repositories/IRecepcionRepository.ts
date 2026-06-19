@@ -11,8 +11,10 @@ export interface FiltrosRecepcion {
 
 export interface CreateRecepcionData {
   proveedorId: string;
+  solicitudCompraId?: string;
   remito?: string;
   fechaRecepcion?: Date;
+  estado?: EstadoRecepcion;
   observaciones?: string;
   usuarioId?: string;
   detalles: {
@@ -20,13 +22,14 @@ export interface CreateRecepcionData {
     cantidad: number;
     ean?: string;
     troquel?: string;
-    lote: string;
-    fechaVencimiento: Date;
+    lote?: string;
+    fechaVencimiento?: Date;
   }[];
 }
 
 export interface UpdateRecepcionData {
   proveedorId?: string;
+  solicitudCompraId?: string;
   remito?: string;
   fechaRecepcion?: Date;
   observaciones?: string;
@@ -36,14 +39,15 @@ export interface UpdateRecepcionData {
     cantidad: number;
     ean?: string;
     troquel?: string;
-    lote: string;
-    fechaVencimiento: Date;
+    lote?: string;
+    fechaVencimiento?: Date;
   }[];
 }
 
 export interface IRecepcionRepository {
   findAll(filtros?: FiltrosRecepcion): Promise<Recepcion[]>;
   findById(id: string): Promise<Recepcion | null>;
+  findBySolicitudCompraId(solicitudCompraId: string): Promise<Recepcion | null>;
   create(data: CreateRecepcionData): Promise<Recepcion>;
   update(id: string, data: UpdateRecepcionData): Promise<Recepcion>;
   procesarStock(id: string, usuarioId?: string): Promise<Recepcion>;

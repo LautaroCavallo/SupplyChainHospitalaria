@@ -31,11 +31,15 @@ import { DetectarStockCritico } from '../application/use-cases/alertas/DetectarS
 import { ListarRecepciones } from '../application/use-cases/recepciones/ListarRecepciones';
 import { ObtenerRecepcion } from '../application/use-cases/recepciones/ObtenerRecepcion';
 import { CrearRecepcion } from '../application/use-cases/recepciones/CrearRecepcion';
+import { CrearRecepcionDesdeOrdenCompra } from '../application/use-cases/recepciones/CrearRecepcionDesdeOrdenCompra';
 import { ActualizarRecepcion } from '../application/use-cases/recepciones/ActualizarRecepcion';
 import { ConfirmarRecepcion } from '../application/use-cases/recepciones/ConfirmarRecepcion';
 import { ProcesarRecepcion } from '../application/use-cases/recepciones/ProcesarRecepcion';
 import { ListarSolicitudesCompra } from '../application/use-cases/solicitudes/ListarSolicitudesCompra';
 import { CrearSolicitudCompra } from '../application/use-cases/solicitudes/CrearSolicitudCompra';
+import { ActualizarSolicitudCompra } from '../application/use-cases/solicitudes/ActualizarSolicitudCompra';
+import { EliminarSolicitudCompra } from '../application/use-cases/solicitudes/EliminarSolicitudCompra';
+import { ConfirmarBorrador } from '../application/use-cases/solicitudes/ConfirmarBorrador';
 import { EnviarOrdenCompra } from '../application/use-cases/solicitudes/EnviarOrdenCompra';
 import { ConfirmarAdjudicacion } from '../application/use-cases/solicitudes/ConfirmarAdjudicacion';
 import { ValidarReceta } from '../application/use-cases/recetas/ValidarReceta';
@@ -86,12 +90,16 @@ export function createContainer() {
   const listarRecepciones = new ListarRecepciones(recepcionRepo);
   const obtenerRecepcion = new ObtenerRecepcion(recepcionRepo);
   const crearRecepcion = new CrearRecepcion(recepcionRepo, proveedorRepo);
+  const crearRecepcionDesdeOrdenCompra = new CrearRecepcionDesdeOrdenCompra(recepcionRepo, solicitudCompraRepo, proveedorRepo);
   const actualizarRecepcion = new ActualizarRecepcion(recepcionRepo, proveedorRepo);
   const confirmarRecepcion = new ConfirmarRecepcion(recepcionRepo);
   const procesarRecepcion = new ProcesarRecepcion(recepcionRepo);
 
   const listarSolicitudesCompra = new ListarSolicitudesCompra(solicitudCompraRepo);
   const crearSolicitudCompra = new CrearSolicitudCompra(solicitudCompraRepo, inventarioRepo);
+  const actualizarSolicitudCompra = new ActualizarSolicitudCompra(solicitudCompraRepo, inventarioRepo);
+  const eliminarSolicitudCompra = new EliminarSolicitudCompra(solicitudCompraRepo);
+  const confirmarBorrador = new ConfirmarBorrador(solicitudCompraRepo);
   const enviarOrdenCompra = new EnviarOrdenCompra(solicitudCompraRepo, comprasService);
   const confirmarAdjudicacion = new ConfirmarAdjudicacion(solicitudCompraRepo);
 
@@ -120,11 +128,15 @@ export function createContainer() {
     listarRecepciones,
     obtenerRecepcion,
     crearRecepcion,
+    crearRecepcionDesdeOrdenCompra,
     actualizarRecepcion,
     confirmarRecepcion,
     procesarRecepcion,
     listarSolicitudesCompra,
     crearSolicitudCompra,
+    actualizarSolicitudCompra,
+    eliminarSolicitudCompra,
+    confirmarBorrador,
     enviarOrdenCompra,
     confirmarAdjudicacion,
     solicitudCompraRepository: solicitudCompraRepo,

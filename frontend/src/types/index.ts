@@ -20,7 +20,7 @@ export type TipoMovimiento =
   | 'AJUSTE_NEGATIVO'
   | 'CONSUMO_RECETA';
 
-export type EstadoSolicitud = 'PENDIENTE' | 'APROBADA' | 'RECHAZADA' | 'ENVIADA';
+export type EstadoSolicitud = 'BORRADOR' | 'PENDIENTE' | 'APROBADA' | 'EN_RECEPCION' | 'RECHAZADA' | 'ENVIADA';
 export type PrioridadSolicitud = 'BAJA' | 'NORMAL' | 'ALTA' | 'URGENTE';
 
 // ─── Inventario ───────────────────────────────────────────────────────────────
@@ -124,11 +124,10 @@ export interface RecepcionDetalle {
   recepcionId?: string;
   productoId: string;
   cantidad: number;
-  precio?: number;
   ean?: string;
   troquel?: string;
-  lote: string;
-  fechaVencimiento: string;
+  lote?: string;
+  fechaVencimiento?: string;
   laboratorio?: string;
   producto?: ProductoInventario;
 }
@@ -136,10 +135,8 @@ export interface RecepcionDetalle {
 export interface Recepcion {
   id: string;
   proveedorId: string;
+  solicitudCompraId?: string;
   remito?: string;
-  transportista?: string;
-  numeroGuia?: string;
-  cantBultos?: number;
   fechaRecepcion: string;
   estado: EstadoRecepcion;
   observaciones?: string;
@@ -149,6 +146,7 @@ export interface Recepcion {
   createdAt: string;
   updatedAt: string;
   proveedor?: Proveedor;
+  solicitudCompra?: SolicitudCompra;
 }
 
 // ─── Solicitudes de Compra ────────────────────────────────────────────────────
@@ -167,7 +165,7 @@ export interface SolicitudCompraDetalle {
   cantidadAprobada?: number;
   unidad?: string;
   precioUnitario?: number;
-  producto?: { id: string; nombre: string };
+  producto?: { id: string; nombre: string; stockActual?: number; stockMinimo?: number };
 }
 
 export interface SolicitudCompra {
@@ -191,9 +189,11 @@ export interface SolicitudCompra {
   proveedorAdjudicadoRazonSocial?: string;
   fechaAprobacion?: string;
   fechaEntregaEstimada?: string;
+  recepcion?: { id: string; estado: EstadoRecepcion } | null;
 }
 
 export type CompraCreatePayload = {
+  estado?: string;
   fechaSolicitud?: string;
   observaciones?: string;
   prioridad?: string;
@@ -226,7 +226,7 @@ export interface MedicamentoListItem {
   presentacion?: string;
   ean?: string;
   laboratorio?: string;
-  estado: 'ACTIVO' | 'INACTIVO' | 'SUSPENDIDO';
+  estado: 'ACTIVO' | 'INACTIVO';
   precio?: number;
   observaciones?: string;
 }

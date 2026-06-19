@@ -21,6 +21,7 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
       take: limit,
       include: {
         proveedor: true,
+        solicitudCompra: true,
         detalles: { include: { producto: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -32,6 +33,18 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
       where: { id },
       include: {
         proveedor: true,
+        solicitudCompra: true,
+        detalles: { include: { producto: true } },
+      },
+    }) as any;
+  }
+
+  async findBySolicitudCompraId(solicitudCompraId: string): Promise<Recepcion | null> {
+    return prisma.recepcion.findUnique({
+      where: { solicitudCompraId },
+      include: {
+        proveedor: true,
+        solicitudCompra: true,
         detalles: { include: { producto: true } },
       },
     }) as any;
@@ -44,11 +57,13 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
       data: {
         ...recepcionData,
         fechaRecepcion: recepcionData.fechaRecepcion ?? new Date(),
+        estado: recepcionData.estado ?? 'PROCESADA',
         totalItems: detalles.length,
         detalles: { create: detalles },
       },
       include: {
         proveedor: true,
+        solicitudCompra: true,
         detalles: { include: { producto: true } },
       },
     }) as any;
@@ -57,13 +72,13 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
   async update(id: string, data: UpdateRecepcionData): Promise<Recepcion> {
     const { detalles, ...updateData } = data;
     const normalizedDetalles = detalles?.map((d) => ({
-      productoId: d.productoId,
-      cantidad: d.cantidad,
-      ean: d.ean,
-      troquel: d.troquel,
-      lote: d.lote,
-      fechaVencimiento: d.fechaVencimiento,
-    }));
+          productoId: d.productoId,
+          cantidad: d.cantidad,
+          ean: d.ean,
+          troquel: d.troquel,
+          lote: d.lote || null,
+          fechaVencimiento: d.fechaVencimiento ?? null,
+        }));
 
     return prisma.$transaction(async (tx) => {
       if (normalizedDetalles) {
@@ -83,6 +98,7 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
         },
         include: {
           proveedor: true,
+          solicitudCompra: true,
           detalles: { include: { producto: true } },
         },
       }) as any;
@@ -95,6 +111,7 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
         where: { id },
         include: {
           proveedor: true,
+          solicitudCompra: true,
           detalles: { include: { producto: true } },
         },
       });
@@ -116,12 +133,17 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
           data: { estado: 'CONFIRMADA', usuarioId: usuarioId ?? recepcion.usuarioId },
           include: {
             proveedor: true,
+            solicitudCompra: true,
             detalles: { include: { producto: true } },
           },
         }) as any;
       }
 
       for (const detalle of recepcion.detalles) {
+        if (!detalle.lote || !detalle.fechaVencimiento) {
+          throw new Error('La recepción debe tener lote y fecha de vencimiento en todos sus detalles');
+        }
+
         const loteExistente = await tx.lote.findUnique({
           where: {
             productoId_numeroLote: {
@@ -175,6 +197,7 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
         data: { estado: 'CONFIRMADA', usuarioId: usuarioId ?? recepcion.usuarioId },
         include: {
           proveedor: true,
+          solicitudCompra: true,
           detalles: { include: { producto: true } },
         },
       }) as any;

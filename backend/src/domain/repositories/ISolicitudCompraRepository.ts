@@ -11,6 +11,7 @@ export interface FiltrosSolicitudCompra {
 }
 
 export interface CreateSolicitudCompraData {
+  estado?: EstadoSolicitud;
   prioridad?: PrioridadSolicitud;
   motivo?: string;
   usuarioId?: string;
@@ -42,9 +43,24 @@ export interface UpdateSolicitudCompraData {
   }[];
 }
 
+export interface UpdateBorradorData {
+  prioridad?: PrioridadSolicitud;
+  motivo?: string;
+  proveedorSugeridoId?: string;
+  observaciones?: string;
+  detalles: {
+    productoId: string;
+    cantidadSolicitada: number;
+    unidad?: string;
+  }[];
+}
+
 export interface ISolicitudCompraRepository {
   findAll(filtros?: FiltrosSolicitudCompra): Promise<SolicitudCompra[]>;
+  count(filtros?: FiltrosSolicitudCompra): Promise<number>;
   findById(id: string): Promise<SolicitudCompra | null>;
   create(data: CreateSolicitudCompraData): Promise<SolicitudCompra>;
   update(id: string, data: UpdateSolicitudCompraData): Promise<SolicitudCompra>;
+  updateBorrador(id: string, data: UpdateBorradorData): Promise<SolicitudCompra>;
+  delete(id: string): Promise<void>;
 }

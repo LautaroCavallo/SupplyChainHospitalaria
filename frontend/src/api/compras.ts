@@ -47,6 +47,20 @@ export async function enviarOrdenCompra(id: string): Promise<SolicitudCompra> {
   return res.data.data ?? res.data;
 }
 
+export async function confirmarBorrador(id: string): Promise<SolicitudCompra> {
+  const res = await api.post(`/solicitudes-compra/${id}/confirmar-borrador`);
+  return res.data.data ?? res.data;
+}
+
+export async function actualizarCompra(id: string, data: CompraCreatePayload): Promise<SolicitudCompra> {
+  const res = await api.put(`/solicitudes-compra/${id}`, data);
+  return res.data.data ?? res.data;
+}
+
+export async function eliminarCompra(id: string): Promise<void> {
+  await api.delete(`/solicitudes-compra/${id}`);
+}
+
 export async function getAlertasCompras(): Promise<AlertaStockCritico[]> {
   try {
     const res = await api.get('/alertas/stock-critico');

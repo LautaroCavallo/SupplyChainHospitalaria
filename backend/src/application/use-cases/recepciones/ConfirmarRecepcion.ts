@@ -17,6 +17,21 @@ export class ConfirmarRecepcion {
       );
     }
 
+    if (!recepcion.remito?.trim()) {
+      throw new ValidationError('Debe cargar el número de remito antes de confirmar la recepción');
+    }
+
+    if (recepcion.detalles.length === 0) {
+      throw new ValidationError('La recepción debe tener al menos un detalle');
+    }
+
+    const detalleIncompleto = recepcion.detalles.find((detalle) =>
+      !detalle.productoId || detalle.cantidad <= 0 || !detalle.lote?.trim() || !detalle.fechaVencimiento
+    );
+    if (detalleIncompleto) {
+      throw new ValidationError('Todos los detalles deben tener producto, cantidad, lote y vencimiento antes de confirmar');
+    }
+
     const result = await this.recepcionRepository.procesarStock(id, usuarioId);
     return result as unknown as RecepcionResponseDTO;
   }

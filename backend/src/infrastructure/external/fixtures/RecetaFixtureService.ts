@@ -90,6 +90,26 @@ export class RecetaFixtureService implements IRecetaService {
       consumida: false,
       estado: 'Activa',
     },
+    '8506': {
+      recetaId: '8506',
+      valida: true,
+      pacienteId: '10504',
+      pacienteNombre: 'Paciente de Prueba',
+      medicoId: '306',
+      medicoNombre: 'Dra. Laura Sánchez',
+      items: [
+        {
+          productoId: '',
+          nombre: 'Amoxicilina 500mg',
+          medicamento: 'Amoxicilina 500mg',
+          cantidad: 9,
+          indicaciones: 'Tomar según indicación médica.',
+        },
+      ],
+      errores: [],
+      consumida: false,
+      estado: 'Activa',
+    },
   };
 
   async validarReceta(recetaId: string): Promise<RecetaValidacion> {

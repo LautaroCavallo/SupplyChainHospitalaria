@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, ChevronRight, Search, Loader2 } from 'lucide-react';
+import { Calendar, ChevronRight, Search, Loader2, X } from 'lucide-react';
 import { getActividadReciente } from '../api/dashboard';
 import type { ActividadReciente as ActividadItem, PaginatedResponse } from '../types';
 import Pagination from '../components/common/Pagination';
@@ -47,6 +47,8 @@ export default function ActividadReciente() {
   const [evento, setEvento] = useState('');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
+  const [draftDesde, setDraftDesde] = useState('');
+  const [draftHasta, setDraftHasta] = useState('');
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
     key: 'createdAt',
@@ -88,6 +90,20 @@ export default function ActividadReciente() {
 
   const handleSort = (key: SortKey) => {
     setSort((current) => ({ key, direction: nextSortDirection(current, key) }));
+  };
+
+  const applyDateFilter = () => {
+    setDesde(draftDesde);
+    setHasta(draftHasta);
+    setPage(1);
+  };
+
+  const clearDateFilter = () => {
+    setDraftDesde('');
+    setDraftHasta('');
+    setDesde('');
+    setHasta('');
+    setPage(1);
   };
 
   return (
@@ -133,22 +149,40 @@ export default function ActividadReciente() {
         </select>
         <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">
           <Calendar className="h-4 w-4 text-gray-400" />
-          <input
-            type="date"
-            value={desde}
-            onChange={(e) => setDesde(e.target.value)}
-            className="h-7 bg-transparent text-sm text-gray-600 focus:outline-none"
-            aria-label="Fecha desde"
-          />
-          <span className="text-gray-300">-</span>
-          <input
-            type="date"
-            value={hasta}
-            min={desde || undefined}
-            onChange={(e) => setHasta(e.target.value)}
-            className="h-7 bg-transparent text-sm text-gray-600 focus:outline-none"
-            aria-label="Fecha hasta"
-          />
+          <label className="flex items-center gap-1 text-xs text-gray-400">
+            Desde
+            <input
+              type="date"
+              value={draftDesde}
+              onChange={(e) => setDraftDesde(e.target.value)}
+              className="h-7 rounded-lg border border-gray-100 bg-white px-2 text-sm text-gray-600 focus:border-brand focus:outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-1 text-xs text-gray-400">
+            Hasta
+            <input
+              type="date"
+              value={draftHasta}
+              min={draftDesde || undefined}
+              onChange={(e) => setDraftHasta(e.target.value)}
+              className="h-7 rounded-lg border border-gray-100 bg-white px-2 text-sm text-gray-600 focus:border-brand focus:outline-none"
+            />
+          </label>
+          <button
+            onClick={applyDateFilter}
+            className="h-7 rounded-lg bg-brand px-3 text-xs font-semibold text-white hover:bg-brand-light"
+          >
+            Aplicar
+          </button>
+          {(desde || hasta) && (
+            <button
+              onClick={clearDateFilter}
+              title="Limpiar fechas"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 

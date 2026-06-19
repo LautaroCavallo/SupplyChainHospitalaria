@@ -18,6 +18,9 @@ const options: swaggerJsdoc.Options = {
       },
     ],
     tags: [
+      { name: 'Auth', description: 'Autenticación de usuarios' },
+      { name: 'Dashboard', description: 'Indicadores operativos y actividad reciente' },
+      { name: 'Medicamentos', description: 'ABM de medicamentos' },
       { name: 'Vademecum', description: 'Consulta de medicamentos del vademécum Alfabeta' },
       { name: 'Proveedores', description: 'Gestión de proveedores farmacéuticos' },
       { name: 'Inventario', description: 'Gestión de inventario de productos farmacéuticos' },
@@ -101,6 +104,7 @@ const options: swaggerJsdoc.Options = {
           properties: {
             id: { type: 'string', format: 'uuid' },
             proveedorId: { type: 'string', format: 'uuid' },
+            solicitudCompraId: { type: 'string', format: 'uuid', nullable: true, description: 'Orden de compra aprobada que originó la recepción' },
             remito: { type: 'string', nullable: true },
             fechaRecepcion: { type: 'string', format: 'date-time' },
             estado: { type: 'string', enum: ['BORRADOR', 'CONFIRMADA', 'PROCESADA', 'ANULADA'] },
@@ -122,15 +126,15 @@ const options: swaggerJsdoc.Options = {
             cantidad: { type: 'integer' },
             ean: { type: 'string', nullable: true },
             troquel: { type: 'string', nullable: true },
-            lote: { type: 'string' },
-            fechaVencimiento: { type: 'string', format: 'date-time' },
+            lote: { type: 'string', nullable: true },
+            fechaVencimiento: { type: 'string', format: 'date-time', nullable: true },
           },
         },
         SolicitudCompra: {
           type: 'object',
           properties: {
             id: { type: 'string', format: 'uuid' },
-            estado: { type: 'string', enum: ['PENDIENTE', 'ENVIADA', 'APROBADA', 'RECHAZADA'] },
+            estado: { type: 'string', enum: ['BORRADOR', 'PENDIENTE', 'ENVIADA', 'APROBADA', 'EN_RECEPCION', 'RECHAZADA'] },
             prioridad: { type: 'string', enum: ['BAJA', 'NORMAL', 'ALTA', 'URGENTE'] },
             motivo: { type: 'string', nullable: true },
             observaciones: { type: 'string', nullable: true },
@@ -156,7 +160,7 @@ const options: swaggerJsdoc.Options = {
             productoId: { type: 'string', format: 'uuid' },
             cantidadSolicitada: { type: 'integer' },
             cantidadAprobada: { type: 'integer', nullable: true, description: 'Completado por Compras en la adjudicación' },
-            precioUnitario: { type: 'number', format: 'float', nullable: true, description: 'Precio unitario devuelto por Compras. Null hasta que se adjudique.' },
+            precioUnitario: { type: 'number', format: 'float', nullable: true, description: 'Precio unitario devuelto por Compras. Null hasta que se adjudique. En modo mock se calcula de forma determinística con múltiplos de 1000.' },
             unidad: { type: 'string', default: 'unidad' },
           },
         },
@@ -168,21 +172,23 @@ const options: swaggerJsdoc.Options = {
             referenciaExterna: { type: 'string', example: 'OC-COMPRAS-123' },
             proveedorAdjudicado: {
               type: 'object',
+              nullable: true,
               properties: { razonSocial: { type: 'string' } },
             },
             itemsAdjudicados: {
               type: 'array',
+              nullable: true,
               items: {
                 type: 'object',
                 properties: {
                   productoId: { type: 'string', format: 'uuid' },
                   cantidadAprobada: { type: 'integer' },
-                  precioUnitario: { type: 'number', format: 'float', example: 1250.75 },
+                  precioUnitario: { type: 'number', format: 'float', example: 7000 },
                 },
               },
             },
-            fechaAprobacion: { type: 'string', format: 'date-time' },
-            fechaEntregaEstimada: { type: 'string', format: 'date-time', description: 'Default mock: now + 10 días' },
+            fechaAprobacion: { type: 'string', format: 'date-time', nullable: true },
+            fechaEntregaEstimada: { type: 'string', format: 'date-time', nullable: true, description: 'Default mock: now + 10 días' },
             observaciones: { type: 'string' },
           },
         },
@@ -231,7 +237,7 @@ const options: swaggerJsdoc.Options = {
             presentacion: { type: 'string', nullable: true },
             ean: { type: 'string', nullable: true },
             laboratorio: { type: 'string', nullable: true },
-            estado: { type: 'string', enum: ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'] },
+            estado: { type: 'string', enum: ['ACTIVO', 'INACTIVO'] },
             precio: { type: 'number', nullable: true },
             observaciones: { type: 'string', nullable: true },
           },
@@ -244,7 +250,7 @@ const options: swaggerJsdoc.Options = {
             presentacion: { type: 'string', nullable: true },
             ean: { type: 'string', nullable: true },
             laboratorio: { type: 'string', nullable: true },
-            estado: { type: 'string', enum: ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'] },
+            estado: { type: 'string', enum: ['ACTIVO', 'INACTIVO'] },
             precio: { type: 'number', nullable: true },
             observaciones: { type: 'string', nullable: true },
           },
@@ -331,9 +337,93 @@ const options: swaggerJsdoc.Options = {
             message: { type: 'string' },
           },
         },
+        AuthLoginRequest: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: { type: 'string', format: 'email', example: 'admin@healthgrid.local' },
+            password: { type: 'string', format: 'password', example: 'admin123' },
+          },
+        },
+        AuthLoginResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              properties: {
+                token: { type: 'string' },
+                user: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    email: { type: 'string', format: 'email' },
+                    nombre: { type: 'string' },
+                    rol: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
     paths: {
+      '/auth/login': {
+        post: {
+          tags: ['Auth'],
+          summary: 'Iniciar sesión',
+          security: [],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/AuthLoginRequest' },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Login exitoso',
+              content: { 'application/json': { schema: { $ref: '#/components/schemas/AuthLoginResponse' } } },
+            },
+            '400': { description: 'Credenciales inválidas o request mal formado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '401': { description: 'No autorizado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/vademecum/search': {
+        get: {
+          tags: ['Vademecum'],
+          summary: 'Buscar medicamentos en el vademécum',
+          security: [],
+          parameters: [
+            { name: 'q', in: 'query', required: true, schema: { type: 'string', minLength: 2 }, description: 'Texto de búsqueda por nombre, principio activo, EAN o troquel' },
+          ],
+          responses: {
+            '200': {
+              description: 'Resultados de búsqueda',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { $ref: '#/components/schemas/MedicamentoVademecum' } } } } } },
+            },
+            '400': { description: 'Parámetros inválidos', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/vademecum/{id}': {
+        get: {
+          tags: ['Vademecum'],
+          summary: 'Obtener medicamento del vademécum por ID',
+          security: [],
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': {
+              description: 'Medicamento encontrado',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/MedicamentoVademecum' } } } } },
+            },
+            '404': { description: 'Medicamento no encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
       '/dashboard': {
         get: {
           tags: ['Dashboard'],
@@ -383,14 +473,14 @@ const options: swaggerJsdoc.Options = {
       },
       '/medicamentos': {
         get: {
-          tags: ['Inventario'],
+          tags: ['Medicamentos'],
           summary: 'Listar medicamentos del inventario',
           parameters: [
             { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
             { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
             { name: 'busqueda', in: 'query', required: false, schema: { type: 'string' } },
             { name: 'categoria', in: 'query', required: false, schema: { type: 'string' } },
-            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'] } },
+            { name: 'estado', in: 'query', required: false, description: 'Sin valor devuelve activos e inactivos. ACTIVO = solo activos. INACTIVO = solo inactivos.', schema: { type: 'string', enum: ['ACTIVO', 'INACTIVO'] } },
           ],
           responses: {
             '200': {
@@ -414,7 +504,7 @@ const options: swaggerJsdoc.Options = {
           },
         },
         post: {
-          tags: ['Inventario'],
+          tags: ['Medicamentos'],
           summary: 'Crear medicamento en inventario',
           requestBody: {
             required: true,
@@ -431,7 +521,7 @@ const options: swaggerJsdoc.Options = {
       },
       '/medicamentos/summary': {
         get: {
-          tags: ['Inventario'],
+          tags: ['Medicamentos'],
           summary: 'Resumen de medicamentos',
           responses: {
             '200': {
@@ -443,7 +533,7 @@ const options: swaggerJsdoc.Options = {
       },
       '/medicamentos/{id}': {
         put: {
-          tags: ['Inventario'],
+          tags: ['Medicamentos'],
           summary: 'Actualizar medicamento',
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
           requestBody: {
@@ -457,12 +547,108 @@ const options: swaggerJsdoc.Options = {
           },
         },
         delete: {
-          tags: ['Inventario'],
+          tags: ['Medicamentos'],
           summary: 'Desactivar medicamento',
           parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
           responses: {
             '204': { description: 'Medicamento desactivado' },
             '404': { description: 'Medicamento no encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/proveedores': {
+        get: {
+          tags: ['Proveedores'],
+          summary: 'Listar proveedores',
+          parameters: [
+            { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
+            { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
+            { name: 'busqueda', in: 'query', required: false, schema: { type: 'string' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Listado paginado de proveedores',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { $ref: '#/components/schemas/Proveedor' } }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' }, totalPages: { type: 'integer' } } } } },
+            },
+          },
+        },
+        post: {
+          tags: ['Proveedores'],
+          summary: 'Crear proveedor',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['razonSocial', 'cuit'],
+                  properties: {
+                    razonSocial: { type: 'string' },
+                    cuit: { type: 'string', example: '30-71234567-8' },
+                    direccion: { type: 'string' },
+                    telefono: { type: 'string' },
+                    email: { type: 'string', format: 'email' },
+                    contacto: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '201': { description: 'Proveedor creado', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Proveedor' } } } } } },
+            '400': { description: 'Validación fallida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/proveedores/{id}': {
+        get: {
+          tags: ['Proveedores'],
+          summary: 'Obtener proveedor por ID',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '200': { description: 'Proveedor encontrado', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Proveedor' } } } } } },
+            '404': { description: 'Proveedor no encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+        put: {
+          tags: ['Proveedores'],
+          summary: 'Actualizar proveedor',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          requestBody: {
+            required: true,
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Proveedor' } } },
+          },
+          responses: {
+            '200': { description: 'Proveedor actualizado', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Proveedor' } } } } } },
+            '404': { description: 'Proveedor no encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+        delete: {
+          tags: ['Proveedores'],
+          summary: 'Eliminar proveedor (soft delete)',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '204': { description: 'Proveedor eliminado' },
+            '404': { description: 'Proveedor no encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/inventario': {
+        get: {
+          tags: ['Inventario'],
+          summary: 'Listar inventario',
+          parameters: [
+            { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
+            { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
+            { name: 'busqueda', in: 'query', required: false, schema: { type: 'string' } },
+            { name: 'categoria', in: 'query', required: false, schema: { type: 'string' } },
+            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['CRITICO', 'BAJO', 'SIN_STOCK', 'NORMAL'] } },
+          ],
+          responses: {
+            '200': {
+              description: 'Listado paginado de productos de inventario',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { $ref: '#/components/schemas/ProductoInventario' } }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' }, totalPages: { type: 'integer' } } } } },
+            },
           },
         },
       },
@@ -485,6 +671,18 @@ const options: swaggerJsdoc.Options = {
                 },
               },
             },
+          },
+        },
+      },
+      '/inventario/ean/{ean}': {
+        get: {
+          tags: ['Inventario'],
+          summary: 'Obtener producto por código EAN',
+          parameters: [{ name: 'ean', in: 'path', required: true, schema: { type: 'string', pattern: '^\\d{8}$|^\\d{12,13}$' } }],
+          responses: {
+            '200': { description: 'Producto encontrado', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/ProductoInventario' } } } } } },
+            '400': { description: 'EAN inválido', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'Producto no encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
           },
         },
       },
@@ -524,12 +722,222 @@ const options: swaggerJsdoc.Options = {
           },
         },
       },
+      '/inventario/{id}': {
+        get: {
+          tags: ['Inventario'],
+          summary: 'Obtener producto de inventario por ID',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '200': { description: 'Producto encontrado', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/ProductoInventario' } } } } } },
+            '404': { description: 'Producto no encontrado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/inventario/{id}/ajuste': {
+        post: {
+          tags: ['Inventario'],
+          summary: 'Ajustar stock de un producto',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['cantidad', 'tipo', 'motivo'],
+                  properties: {
+                    cantidad: { type: 'integer', minimum: 1 },
+                    tipo: { type: 'string', enum: ['INCREMENTO', 'DECREMENTO'] },
+                    motivo: { type: 'string' },
+                    loteId: { type: 'string', format: 'uuid', nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Stock ajustado', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/ProductoInventario' } } } } } },
+            '400': { description: 'Validación fallida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/inventario/{id}/movimientos': {
+        get: {
+          tags: ['Inventario'],
+          summary: 'Listar movimientos de stock de un producto',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '200': { description: 'Movimientos del producto', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { $ref: '#/components/schemas/MovimientoStock' } } } } } } },
+          },
+        },
+      },
+      '/inventario/{id}/lotes': {
+        get: {
+          tags: ['Inventario'],
+          summary: 'Listar lotes de un producto',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '200': { description: 'Lotes del producto', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { $ref: '#/components/schemas/Lote' } } } } } } },
+          },
+        },
+      },
+      '/recepciones': {
+        get: {
+          tags: ['Recepciones'],
+          summary: 'Listar recepciones',
+          parameters: [
+            { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
+            { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
+            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['BORRADOR', 'CONFIRMADA', 'PROCESADA', 'ANULADA'] } },
+          ],
+          responses: {
+            '200': {
+              description: 'Listado paginado de recepciones',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { $ref: '#/components/schemas/Recepcion' } }, total: { type: 'integer' }, page: { type: 'integer' }, limit: { type: 'integer' }, totalPages: { type: 'integer' } } } } },
+            },
+          },
+        },
+        post: {
+          tags: ['Recepciones'],
+          summary: 'Crear recepción manual en estado PROCESADA',
+          description: 'Registra una recepción pendiente de confirmación. No impacta stock hasta llamar a /recepciones/{id}/confirmar.',
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['proveedorId', 'fechaRecepcion', 'detalles'],
+                  properties: {
+                    proveedorId: { type: 'string', format: 'uuid' },
+                    remito: { type: 'string', nullable: true },
+                    fechaRecepcion: { type: 'string', format: 'date-time' },
+                    observaciones: { type: 'string', nullable: true },
+                    detalles: {
+                      type: 'array',
+                      minItems: 1,
+                      items: {
+                        type: 'object',
+                        required: ['productoId', 'cantidad'],
+                        properties: {
+                          productoId: { type: 'string', format: 'uuid' },
+                          cantidad: { type: 'integer', minimum: 1 },
+                          lote: { type: 'string' },
+                          fechaVencimiento: { type: 'string', format: 'date-time' },
+                          ean: { type: 'string', nullable: true },
+                          troquel: { type: 'string', nullable: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '201': { description: 'Recepción creada', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Recepcion' } } } } } },
+            '400': { description: 'Validación fallida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/recepciones/desde-orden-compra/{solicitudId}': {
+        post: {
+          tags: ['Recepciones'],
+          summary: 'Generar recepción desde orden de compra aprobada',
+          description: 'Crea o devuelve una recepción BORRADOR vinculada a una solicitud de compra APROBADA. La cantidad viene precargada desde la orden y se puede modificar; EAN, troquel, lote y vencimiento se completan manualmente antes de procesar.',
+          parameters: [{ name: 'solicitudId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '201': { description: 'Recepción generada o existente', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Recepcion' } } } } } },
+            '400': { description: 'La orden no está aprobada o no tiene proveedor', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'Orden de compra no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/recepciones/{id}': {
+        get: {
+          tags: ['Recepciones'],
+          summary: 'Obtener recepción por ID',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '200': { description: 'Recepción encontrada', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Recepcion' } } } } } },
+            '404': { description: 'Recepción no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+        put: {
+          tags: ['Recepciones'],
+          summary: 'Actualizar recepción en estado BORRADOR o PROCESADA',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['proveedorId', 'fechaRecepcion', 'detalles'],
+                  properties: {
+                    proveedorId: { type: 'string', format: 'uuid' },
+                    remito: { type: 'string', nullable: true },
+                    fechaRecepcion: { type: 'string', format: 'date-time' },
+                    observaciones: { type: 'string', nullable: true },
+                    detalles: {
+                      type: 'array',
+                      minItems: 1,
+                      items: { $ref: '#/components/schemas/RecepcionDetalle' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': { description: 'Recepción actualizada', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Recepcion' } } } } } },
+            '400': { description: 'Validación fallida o estado inválido', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'Recepción no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/recepciones/{id}/confirmar': {
+        put: {
+          tags: ['Recepciones'],
+          summary: 'Confirmar recepción',
+          description: 'Confirma una recepción PROCESADA, valida remito/lote/vencimiento e impacta stock y lotes. Persiste el estado CONFIRMADA.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '200': { description: 'Recepción confirmada', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Recepcion' } } } } } },
+            '400': { description: 'Estado inválido para confirmar', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/recepciones/{id}/procesar': {
+        put: {
+          tags: ['Recepciones'],
+          summary: 'Procesar recepción BORRADOR a PROCESADA',
+          description: 'Pasa una recepción BORRADOR a PROCESADA. Valida remito, producto, EAN, troquel, cantidad, lote y vencimiento. No impacta stock; el impacto ocurre al confirmar.',
+          parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: {
+            '200': { description: 'Recepción procesada sin impacto de stock', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/Recepcion' } } } } } },
+            '400': { description: 'Estado inválido para procesar', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/alertas/stock-critico': {
+        get: {
+          tags: ['Alertas'],
+          summary: 'Listar productos con stock bajo, crítico o sin stock',
+          responses: {
+            '200': {
+              description: 'Productos que requieren atención',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { type: 'array', items: { $ref: '#/components/schemas/ProductoInventario' } } } } } },
+            },
+          },
+        },
+      },
       '/solicitudes-compra': {
         get: {
           tags: ['Solicitudes de Compra'],
           summary: 'Listar solicitudes de compra',
           parameters: [
-            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['PENDIENTE', 'ENVIADA', 'APROBADA', 'RECHAZADA'] } },
+            { name: 'estado', in: 'query', required: false, schema: { type: 'string', enum: ['BORRADOR', 'PENDIENTE', 'ENVIADA', 'APROBADA', 'EN_RECEPCION', 'RECHAZADA'] } },
             { name: 'page', in: 'query', required: false, schema: { type: 'integer', minimum: 1 } },
             { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } },
           ],
@@ -543,6 +951,10 @@ const options: swaggerJsdoc.Options = {
                     properties: {
                       success: { type: 'boolean' },
                       data: { type: 'array', items: { $ref: '#/components/schemas/SolicitudCompra' } },
+                      total: { type: 'integer' },
+                      page: { type: 'integer' },
+                      limit: { type: 'integer' },
+                      totalPages: { type: 'integer' },
                     },
                   },
                 },
@@ -561,6 +973,7 @@ const options: swaggerJsdoc.Options = {
                   type: 'object',
                   required: ['detalles'],
                   properties: {
+                    estado: { type: 'string', enum: ['BORRADOR', 'PENDIENTE'], default: 'PENDIENTE', description: 'BORRADOR para guardar como borrador editable; PENDIENTE crea la solicitud lista para enviar.' },
                     prioridad: { type: 'string', enum: ['BAJA', 'NORMAL', 'ALTA', 'URGENTE'], default: 'NORMAL' },
                     motivo: { type: 'string' },
                     observaciones: { type: 'string' },
@@ -614,12 +1027,92 @@ const options: swaggerJsdoc.Options = {
             '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
           },
         },
+        put: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Editar un borrador (solo estado BORRADOR)',
+          description: 'Reemplaza por completo los items del borrador (agregar / modificar / eliminar) y campos de cabecera. Solo permitido cuando la solicitud está en estado BORRADOR.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['detalles'],
+                  properties: {
+                    prioridad: { type: 'string', enum: ['BAJA', 'NORMAL', 'ALTA', 'URGENTE'] },
+                    motivo: { type: 'string' },
+                    observaciones: { type: 'string' },
+                    proveedorSugeridoId: { type: 'string', format: 'uuid', nullable: true },
+                    detalles: {
+                      type: 'array',
+                      minItems: 1,
+                      items: {
+                        type: 'object',
+                        required: ['productoId', 'cantidadSolicitada'],
+                        properties: {
+                          productoId: { type: 'string', format: 'uuid' },
+                          cantidadSolicitada: { type: 'integer', minimum: 1 },
+                          unidad: { type: 'string', default: 'unidad' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Borrador actualizado',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/SolicitudCompra' } } } } },
+            },
+            '400': { description: 'La solicitud no está en estado BORRADOR o validación fallida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+        delete: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Eliminar un borrador (solo estado BORRADOR)',
+          description: 'Elimina permanentemente la solicitud. Solo permitido cuando está en estado BORRADOR.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Borrador eliminado',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' } } } } },
+            },
+            '400': { description: 'La solicitud no está en estado BORRADOR', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/solicitudes-compra/{id}/confirmar-borrador': {
+        post: {
+          tags: ['Solicitudes de Compra'],
+          summary: 'Confirmar un borrador (BORRADOR → PENDIENTE)',
+          description: 'Transiciona la solicitud de BORRADOR a PENDIENTE, dejándola lista para enviarse a Compras.',
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            '200': {
+              description: 'Solicitud confirmada (ahora PENDIENTE)',
+              content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, data: { $ref: '#/components/schemas/SolicitudCompra' } } } } },
+            },
+            '400': { description: 'La solicitud no está en estado BORRADOR', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            '404': { description: 'OC no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
       },
       '/solicitudes-compra/{id}/enviar-compras': {
         post: {
           tags: ['Solicitudes de Compra'],
           summary: 'Enviar OC al módulo de Compras (PENDIENTE → ENVIADA)',
-          description: 'Genera un ordenCompraId, envía la OC al endpoint configurado en COMPRAS_URL e incluye el callbackUrl para la adjudicación. En modo mock (COMPRAS_USE_MOCK=true) simula la adjudicación automáticamente con precios aleatorios y pasa directo a APROBADA.',
+          description: 'Genera un ordenCompraId, envía la OC al endpoint configurado en COMPRAS_URL e incluye el callbackUrl para la adjudicación. En modo mock (COMPRAS_USE_MOCK=true) simula la adjudicación automáticamente con precios determinísticos en múltiplos de 1000 y pasa directo a APROBADA.',
           parameters: [
             { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           ],
@@ -653,7 +1146,7 @@ const options: swaggerJsdoc.Options = {
                       aprobado: true,
                       referenciaExterna: 'OC-COMPRAS-123',
                       proveedorAdjudicado: { razonSocial: 'Droguería Ejemplo SA' },
-                      itemsAdjudicados: [{ productoId: '<uuid>', cantidadAprobada: 50, precioUnitario: 1250.75 }],
+                      itemsAdjudicados: [{ productoId: '<uuid>', cantidadAprobada: 50, precioUnitario: 7000 }],
                       fechaAprobacion: '2026-06-09T00:00:00.000Z',
                       fechaEntregaEstimada: '2026-06-19T00:00:00.000Z',
                       observaciones: 'Adjudicado por licitación pública',

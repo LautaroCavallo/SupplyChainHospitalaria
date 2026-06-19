@@ -1,44 +1,70 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Eye, Filter, Download, ShoppingCart, AlertTriangle, Loader2, Send } from 'lucide-react';
-import { getCompras, getAlertasCompras, enviarOrdenCompra } from '../api/compras';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Eye, Filter, Download, Loader2, Send, Check, Pencil, X, PackagePlus } from 'lucide-react';
+import { getCompras, getAlertasCompras, enviarOrdenCompra, confirmarBorrador, eliminarCompra } from '../api/compras';
+import { crearRecepcionDesdeOrdenCompra } from '../api/recepciones';
+import ConfirmModal from '../components/common/ConfirmModal';
 import type { SolicitudCompra, AlertaStockCritico, PaginatedResponse } from '../types';
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
 import NuevaSolicitudModal from '../components/compras/NuevaSolicitudModal';
 import VerSolicitudModal from '../components/compras/VerSolicitudModal';
+import AlertasCarousel from '../components/compras/AlertasCarousel';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import FilterTabs from '../components/common/FilterTabs';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
-const estadoBadge: Record<string, { label: string; variant: 'success' | 'warning' | 'info' | 'default' }> = {
+const estadoBadge: Record<string, { label: string; variant: 'success' | 'warning' | 'info' | 'default' | 'danger' }> = {
+  BORRADOR:  { label: 'Borrador',  variant: 'default' },
   APROBADA:  { label: 'Aprobada',  variant: 'success' },
+  EN_RECEPCION: { label: 'En recepción', variant: 'info' },
   PENDIENTE: { label: 'Pendiente', variant: 'warning' },
-  RECHAZADA: { label: 'Rechazada', variant: 'default' },
+  RECHAZADA: { label: 'Rechazada', variant: 'danger' },
   ENVIADA:   { label: 'Enviada',   variant: 'info' },
 };
 
 const tabs = [
   { label: 'TODOS', value: '' },
+  { label: 'BORRADORES', value: 'BORRADOR' },
   { label: 'PENDIENTES', value: 'PENDIENTE' },
   { label: 'APROBADAS', value: 'APROBADA' },
+  { label: 'EN RECEPCIÓN', value: 'EN_RECEPCION' },
   { label: 'ENVIADAS', value: 'ENVIADA' },
 ];
 
 type SortKey = 'id' | 'fecha' | 'proveedor' | 'items' | 'estado';
 
 const estadoSortOrder: Record<string, number> = {
-  PENDIENTE: 0,
-  APROBADA: 1,
-  ENVIADA: 2,
-  RECHAZADA: 3,
+  BORRADOR: 0,
+  PENDIENTE: 1,
+  APROBADA: 2,
+  EN_RECEPCION: 3,
+  ENVIADA: 4,
+  RECHAZADA: 5,
 };
 
+function getProveedorSolicitud(s: SolicitudCompra): string {
+  return s.proveedorAdjudicadoRazonSocial
+    ?? s.proveedorNombre
+    ?? s.proveedorSugerido?.razonSocial
+    ?? '—';
+}
+
+function getEstadoSolicitud(s: SolicitudCompra): string {
+  if (s.estado === 'APROBADA' && s.recepcion) return 'EN_RECEPCION';
+  return s.estado;
+}
+
 export default function Compras() {
+  const navigate = useNavigate();
   const [data, setData] = useState<PaginatedResponse<SolicitudCompra> | null>(null);
   const [alertas, setAlertas] = useState<AlertaStockCritico[]>([]);
   const [page, setPage] = useState(1);
   const [estadoFilter, setEstadoFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [nuevaModal, setNuevaModal] = useState(false);
+  const [prefillAlerta, setPrefillAlerta] = useState<AlertaStockCritico | null>(null);
+  const [editandoBorrador, setEditandoBorrador] = useState<SolicitudCompra | null>(null);
   const [verModal, setVerModal] = useState(false);
   const [selectedSolicitud, setSelectedSolicitud] = useState<SolicitudCompra | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
@@ -46,6 +72,9 @@ export default function Compras() {
     direction: 'desc',
   });
   const [enviando, setEnviando] = useState<string | null>(null);
+  const [generandoRecepcion, setGenerandoRecepcion] = useState<string | null>(null);
+  const [borradorAEliminar, setBorradorAEliminar] = useState<SolicitudCompra | null>(null);
+  const [eliminando, setEliminando] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -72,9 +101,9 @@ export default function Compras() {
 
       if (sort.key === 'id') result = compareText(a.id, b.id);
       if (sort.key === 'fecha') result = compareDate(a.fechaSolicitud ?? a.createdAt, b.fechaSolicitud ?? b.createdAt);
-      if (sort.key === 'proveedor') result = compareText(a.proveedorNombre, b.proveedorNombre);
+      if (sort.key === 'proveedor') result = compareText(getProveedorSolicitud(a), getProveedorSolicitud(b));
       if (sort.key === 'items') result = compareNumber(a.detalles.length, b.detalles.length);
-      if (sort.key === 'estado') result = (estadoSortOrder[a.estado] ?? 99) - (estadoSortOrder[b.estado] ?? 99);
+      if (sort.key === 'estado') result = (estadoSortOrder[getEstadoSolicitud(a)] ?? 99) - (estadoSortOrder[getEstadoSolicitud(b)] ?? 99);
 
       return applySortDirection(result, sort.direction);
     });
@@ -96,57 +125,68 @@ export default function Compras() {
     }
   }, [fetchData]);
 
+  const handleConfirmarBorrador = useCallback(async (id: string) => {
+    try {
+      setEnviando(id);
+      await confirmarBorrador(id);
+      await fetchData();
+    } catch {
+      // graceful
+    } finally {
+      setEnviando(null);
+    }
+  }, [fetchData]);
+
+  const handleEliminarBorrador = async () => {
+    if (!borradorAEliminar) return;
+    try {
+      setEliminando(true);
+      await eliminarCompra(borradorAEliminar.id);
+      setBorradorAEliminar(null);
+      await fetchData();
+    } catch {
+      // graceful
+    } finally {
+      setEliminando(false);
+    }
+  };
+
+  const handleGenerarRecepcion = useCallback(async (id: string) => {
+    try {
+      setGenerandoRecepcion(id);
+      const recepcion = await crearRecepcionDesdeOrdenCompra(id);
+      navigate(`/recepciones/${recepcion.id}/editar`);
+    } catch {
+      // graceful
+    } finally {
+      setGenerandoRecepcion(null);
+    }
+  }, [navigate]);
+
+  const handleRowClick = (s: SolicitudCompra) => {
+    if (s.estado === 'BORRADOR') {
+      setPrefillAlerta(null);
+      setEditandoBorrador(s);
+      setNuevaModal(true);
+    } else {
+      setSelectedSolicitud(s);
+      setVerModal(true);
+    }
+  };
+
   return (
-    <div>
+    <div className="pb-20">
       <div className="mb-8">
         <h1 className="font-serif text-5xl font-bold text-gray-900">Solicitud de Compras</h1>
         <p className="mt-2 text-sm text-gray-500">Gestion de pedidos de medicamentos</p>
       </div>
 
-      {/* Alertas banner */}
+      {/* Alertas Carousel */}
       {alertas.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-amber-100 bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <span className="font-semibold text-gray-900">Medicamentos proximos a Stock Crítico</span>
-              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700">
-                {alertas.length} ALERTAS
-              </span>
-            </div>
-            <button className="text-sm font-medium text-brand hover:underline">
-              Ver catálogo completo →
-            </button>
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            {alertas.slice(0, 3).map((a) => (
-              <div key={a.id} className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{a.nombre}</p>
-                    <p className="text-xs uppercase tracking-wider text-gray-400">{a.proveedorNombre}</p>
-                  </div>
-                  <button
-                    onClick={() => setNuevaModal(true)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white hover:bg-brand-light"
-                  >
-                    <ShoppingCart className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <p className="text-gray-400 uppercase tracking-wider">Stock</p>
-                    <p className="font-bold text-amber-600">{a.stockActual}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-400 uppercase tracking-wider">Mínimo</p>
-                    <p className="font-bold text-gray-700">{a.stockMinimo}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <AlertasCarousel
+          alertas={alertas}
+          onCrearSolicitud={(alerta) => { setPrefillAlerta(alerta); setNuevaModal(true); }}
+        />
       )}
 
       {/* Historial de Solicitudes */}
@@ -157,19 +197,7 @@ export default function Compras() {
             <p className="mt-0.5 text-xs text-gray-400">Gestion detallada de pedidos pasados y pendientes.</p>
           </div>
           <div className="flex items-center gap-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setEstadoFilter(tab.value)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  estadoFilter === tab.value
-                    ? 'bg-brand text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            <FilterTabs tabs={tabs} active={estadoFilter} onChange={setEstadoFilter} size="sm" />
             <button className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
               <Filter className="h-3.5 w-3.5" />
               Filtrar
@@ -200,12 +228,13 @@ export default function Compras() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {sortedSolicitudes.map((s) => {
-                  const badge = estadoBadge[s.estado] ?? { label: s.estado, variant: 'default' as const };
+                  const estadoActual = getEstadoSolicitud(s);
+                  const badge = estadoBadge[estadoActual] ?? { label: estadoActual, variant: 'default' as const };
                   return (
-                    <tr key={s.id} className="cursor-pointer hover:bg-gray-50" onClick={() => { setSelectedSolicitud(s); setVerModal(true); }}>
+                    <tr key={s.id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleRowClick(s)}>
                       <td className="px-6 py-4 text-sm font-semibold text-brand">{s.id}</td>
                       <td className="px-6 py-4 text-sm text-gray-600">{s.fechaSolicitud ?? s.createdAt?.slice(0, 10)}</td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{s.proveedorNombre ?? '—'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{getProveedorSolicitud(s)}</td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-900">
                         {String(s.detalles.length).padStart(2, '0')}
                       </td>
@@ -214,6 +243,29 @@ export default function Compras() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          {s.estado === 'BORRADOR' && (
+                            <>
+                              <button
+                                disabled={enviando === s.id}
+                                onClick={() => handleConfirmarBorrador(s.id)}
+                                title="Confirmar borrador"
+                                className="flex h-8 items-center gap-1.5 rounded-lg bg-brand px-2.5 text-xs font-semibold text-white hover:bg-brand-light disabled:opacity-50"
+                              >
+                                {enviando === s.id
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <Check className="h-3.5 w-3.5" />
+                                }
+                                Confirmar
+                              </button>
+                              <button
+                                onClick={() => setBorradorAEliminar(s)}
+                                title="Eliminar borrador"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
                           {s.estado === 'PENDIENTE' && (
                             <button
                               disabled={enviando === s.id}
@@ -228,11 +280,36 @@ export default function Compras() {
                               Enviar
                             </button>
                           )}
+                          {estadoActual === 'APROBADA' && (
+                            <button
+                              disabled={generandoRecepcion === s.id}
+                              onClick={() => handleGenerarRecepcion(s.id)}
+                              title="Generar recepción"
+                              className="flex h-8 items-center gap-1.5 rounded-lg bg-brand px-2.5 text-xs font-semibold text-white hover:bg-brand-light disabled:opacity-50"
+                            >
+                              {generandoRecepcion === s.id
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <PackagePlus className="h-3.5 w-3.5" />
+                              }
+                              Recepción
+                            </button>
+                          )}
+                          {estadoActual === 'EN_RECEPCION' && s.recepcion && (
+                            <button
+                              onClick={() => navigate(`/recepciones/${s.recepcion?.id}/editar`)}
+                              title="Ver recepción generada"
+                              className="flex h-8 items-center gap-1.5 rounded-lg border border-brand px-2.5 text-xs font-semibold text-brand hover:bg-green-50"
+                            >
+                              <PackagePlus className="h-3.5 w-3.5" />
+                              Ver recepción
+                            </button>
+                          )}
                           <button
-                            onClick={() => { setSelectedSolicitud(s); setVerModal(true); }}
+                            onClick={() => handleRowClick(s)}
+                            title={s.estado === 'BORRADOR' ? 'Editar borrador' : 'Ver detalle'}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
                           >
-                            <Eye className="h-4 w-4" />
+                            {s.estado === 'BORRADOR' ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
                       </td>
@@ -261,15 +338,31 @@ export default function Compras() {
 
       {/* FAB */}
       <button
-        onClick={() => setNuevaModal(true)}
+        onClick={() => { setPrefillAlerta(null); setEditandoBorrador(null); setNuevaModal(true); }}
         className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-light"
       >
         <Plus className="h-5 w-5" />
         Nueva Solicitud de compra
       </button>
 
-      <NuevaSolicitudModal isOpen={nuevaModal} onClose={() => { setNuevaModal(false); fetchData(); }} />
+      <NuevaSolicitudModal
+        isOpen={nuevaModal}
+        prefill={prefillAlerta}
+        solicitud={editandoBorrador}
+        onClose={() => { setNuevaModal(false); setPrefillAlerta(null); setEditandoBorrador(null); fetchData(); }}
+      />
       <VerSolicitudModal isOpen={verModal} onClose={() => { setVerModal(false); setSelectedSolicitud(null); }} solicitud={selectedSolicitud} onRefresh={fetchData} />
+
+      <ConfirmModal
+        isOpen={!!borradorAEliminar}
+        title="¿Eliminar borrador?"
+        description="Esta acción no se puede deshacer. El borrador se eliminará permanentemente."
+        confirmLabel="Sí, eliminar"
+        cancelLabel="Cancelar"
+        loading={eliminando}
+        onConfirm={handleEliminarBorrador}
+        onCancel={() => setBorradorAEliminar(null)}
+      />
     </div>
   );
 }

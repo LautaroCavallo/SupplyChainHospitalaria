@@ -9,6 +9,7 @@ interface RecepcionesParams {
 
 export interface CrearRecepcionPayload {
   proveedorId: string;
+  solicitudCompraId?: string;
   remito?: string;
   fechaRecepcion: string;
   observaciones?: string;
@@ -31,6 +32,13 @@ export async function crearRecepcion(
   data: CrearRecepcionPayload
 ): Promise<Recepcion> {
   const res = await api.post('/recepciones', data);
+  return res.data.data;
+}
+
+export async function crearRecepcionDesdeOrdenCompra(
+  solicitudId: string
+): Promise<Recepcion> {
+  const res = await api.post(`/recepciones/desde-orden-compra/${solicitudId}`);
   return res.data.data;
 }
 

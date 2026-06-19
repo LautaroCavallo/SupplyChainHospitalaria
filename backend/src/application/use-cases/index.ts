@@ -14,6 +14,7 @@ export { ObtenerMovimientos } from './inventario/ObtenerMovimientos';
 export { ObtenerLotes } from './inventario/ObtenerLotes';
 
 export { CrearRecepcion } from './recepciones/CrearRecepcion';
+export { CrearRecepcionDesdeOrdenCompra } from './recepciones/CrearRecepcionDesdeOrdenCompra';
 export { ListarRecepciones } from './recepciones/ListarRecepciones';
 export { ObtenerRecepcion } from './recepciones/ObtenerRecepcion';
 export { ConfirmarRecepcion } from './recepciones/ConfirmarRecepcion';

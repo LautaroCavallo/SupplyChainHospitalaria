@@ -11,8 +11,12 @@ export class PrismaInventarioRepository implements IInventarioRepository {
   }
 
   private buildWhere(filtros: FiltrosInventario & { busqueda?: string } = {}): any {
-    const { nombre, busqueda, categoria, activo = true, proveedorId, genericoId } = filtros;
-    const where: any = { activo };
+    const { nombre, busqueda, categoria, activo, proveedorId, genericoId } = filtros;
+    const where: any = {};
+
+    // Solo filtrar por activo cuando se especifica explícitamente (true/false).
+    // Si es undefined, devuelve tanto activos como inactivos.
+    if (activo !== undefined) where.activo = activo;
 
     const searchTerm = busqueda || nombre;
     if (searchTerm) {

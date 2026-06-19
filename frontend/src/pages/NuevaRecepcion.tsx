@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Loader2, ChevronLeft, Search } from 'lucide-react';
 import { getProveedores } from '../api/proveedores';
-import { crearRecepcion, confirmarRecepcion, procesarRecepcion } from '../api/recepciones';
+import { crearRecepcion } from '../api/recepciones';
 import { getInventario } from '../api/inventario';
 import type { Proveedor, ProductoInventario } from '../types';
 import ConfirmModal from '../components/common/ConfirmModal';
+import DateTextInput from '../components/common/DateTextInput';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
@@ -14,17 +15,16 @@ interface DetalleRow {
   productoId: string;
   nombreProducto: string;
   cantidad: number;
-  precio: number;
   ean: string;
   troquel: string;
   lote: string;
   fechaVencimiento: string;
 }
 
-type SortKey = 'nombreProducto' | 'cantidad' | 'precio' | 'ean' | 'troquel' | 'lote' | 'fechaVencimiento';
+type SortKey = 'nombreProducto' | 'cantidad' | 'ean' | 'troquel' | 'lote' | 'fechaVencimiento';
 
 function emptyRow(key: number): DetalleRow {
-  return { key, productoId: '', nombreProducto: '', cantidad: 0, precio: 0, ean: '', troquel: '', lote: '', fechaVencimiento: '' };
+  return { key, productoId: '', nombreProducto: '', cantidad: 0, ean: '', troquel: '', lote: '', fechaVencimiento: '' };
 }
 
 export default function NuevaRecepcion() {
@@ -32,9 +32,6 @@ export default function NuevaRecepcion() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [proveedorId, setProveedorId] = useState('');
   const [remito, setRemito] = useState('');
-  const [transportista, setTransportista] = useState('');
-  const [numeroGuia, setNumeroGuia] = useState('');
-  const [cantBultos, setCantBultos] = useState('');
   const [fechaRecepcion, setFechaRecepcion] = useState(() => new Date().toISOString().slice(0, 10));
   const [rows, setRows] = useState<DetalleRow[]>([emptyRow(1)]);
   const [saving, setSaving] = useState(false);
@@ -89,14 +86,12 @@ export default function NuevaRecepcion() {
   const removeRow = (key: number) => { setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.key !== key) : prev)); };
 
   const totalItems = rows.reduce((sum, r) => sum + (r.cantidad || 0), 0);
-  const totalPrecio = rows.reduce((sum, r) => sum + (r.cantidad || 0) * (r.precio || 0), 0);
   const sortedRows = useMemo(() => {
     return [...rows].sort((a, b) => {
       let result = 0;
 
       if (sort.key === 'nombreProducto') result = compareText(a.nombreProducto, b.nombreProducto);
       if (sort.key === 'cantidad') result = compareNumber(a.cantidad, b.cantidad);
-      if (sort.key === 'precio') result = compareNumber(a.precio, b.precio);
       if (sort.key === 'ean') result = compareText(a.ean, b.ean);
       if (sort.key === 'troquel') result = compareText(a.troquel, b.troquel);
       if (sort.key === 'lote') result = compareText(a.lote, b.lote);
@@ -125,16 +120,12 @@ export default function NuevaRecepcion() {
   const buildPayload = () => ({
     proveedorId,
     remito: remito || undefined,
-    transportista: transportista || undefined,
-    numeroGuia: numeroGuia || undefined,
-    cantBultos: cantBultos ? Number(cantBultos) : undefined,
     fechaRecepcion,
     detalles: rows
       .filter((r) => r.productoId)
       .map((r) => ({
         productoId: r.productoId,
         cantidad: r.cantidad,
-        precio: r.precio || undefined,
         ean: r.ean || undefined,
         troquel: r.troquel || undefined,
         lote: r.lote,
@@ -148,24 +139,22 @@ export default function NuevaRecepcion() {
       setSaving(true); setError(null);
       await crearRecepcion(buildPayload());
       navigate('/recepciones');
-    } catch { setError('Error al guardar el borrador'); } finally { setSaving(false); }
+    } catch { setError('Error al guardar la recepción'); } finally { setSaving(false); }
   };
 
-  const handleOpenConfirm = () => {
+  const handleOpenSave = () => {
     if (!validate()) return;
     setConfirmModalOpen(true);
   };
 
-  const handleConfirmAndProcess = async () => {
+  const handleSaveRecepcion = async () => {
     if (!validate()) return;
     setConfirmModalOpen(false);
     try {
       setSaving(true); setError(null);
-      const recepcion = await crearRecepcion(buildPayload());
-      const processed = await procesarRecepcion(recepcion.id);
-      await confirmarRecepcion(processed.id);
+      await crearRecepcion(buildPayload());
       navigate('/recepciones');
-    } catch { setError('Error al confirmar la recepción'); } finally { setSaving(false); }
+    } catch { setError('Error al guardar la recepción'); } finally { setSaving(false); }
   };
 
   return (
@@ -177,7 +166,7 @@ export default function NuevaRecepcion() {
 
       <div className="mb-6">
         <h1 className="font-serif text-4xl font-bold text-gray-900">Nueva recepción</h1>
-        <p className="mt-1 text-sm text-gray-500">Registre un nuevo ingreso de stock desde un proveedor</p>
+        <p className="mt-1 text-sm text-gray-500">Registre una recepción pendiente de confirmar contra stock</p>
       </div>
 
       {/* Form header */}
@@ -198,22 +187,7 @@ export default function NuevaRecepcion() {
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-400">Fecha de recepción</label>
-            <input type="date" value={fechaRecepcion} onChange={(e) => setFechaRecepcion(e.target.value)}
-              className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-400">Transportista</label>
-            <input type="text" value={transportista} onChange={(e) => setTransportista(e.target.value)} placeholder="Nombre del transportista"
-              className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-400">Número de Guía</label>
-            <input type="text" value={numeroGuia} onChange={(e) => setNumeroGuia(e.target.value)} placeholder="Nro. de guía"
-              className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-400">Cant. Bultos</label>
-            <input type="number" min={0} value={cantBultos} onChange={(e) => setCantBultos(e.target.value)} placeholder="0"
+            <DateTextInput value={fechaRecepcion} onChange={setFechaRecepcion}
               className="h-10 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand" />
           </div>
         </div>
@@ -229,7 +203,6 @@ export default function NuevaRecepcion() {
             <tr className="border-b border-gray-100 bg-gray-50/50">
               <SortableTh label="Medicamento" sortKey="nombreProducto" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
               <SortableTh label="Cant." sortKey="cantidad" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="w-20 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
-              <SortableTh label="Precio" sortKey="precio" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="w-24 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
               <SortableTh label="EAN" sortKey="ean" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
               <SortableTh label="Troquel" sortKey="troquel" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
               <SortableTh label="Lote" sortKey="lote" activeKey={sort.key} direction={sort.direction} onSort={handleSort} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400" />
@@ -273,11 +246,6 @@ export default function NuevaRecepcion() {
                     className="h-9 w-full rounded-xl border border-gray-200 px-2 text-sm text-center focus:border-brand focus:outline-none" />
                 </td>
                 <td className="px-4 py-2">
-                  <input type="number" min={0} step="0.01" value={row.precio || ''} onChange={(e) => updateRow(row.key, 'precio', Number(e.target.value))}
-                    placeholder="$0"
-                    className="h-9 w-full rounded-xl border border-gray-200 px-2 text-sm focus:border-brand focus:outline-none" />
-                </td>
-                <td className="px-4 py-2">
                   <input type="text" value={row.ean} onChange={(e) => updateRow(row.key, 'ean', e.target.value)}
                     className="h-9 w-full rounded-xl border border-gray-200 px-2 text-sm focus:border-brand focus:outline-none" />
                 </td>
@@ -290,7 +258,7 @@ export default function NuevaRecepcion() {
                     className="h-9 w-full rounded-xl border border-gray-200 px-2 text-sm focus:border-brand focus:outline-none" />
                 </td>
                 <td className="px-4 py-2">
-                  <input type="date" value={row.fechaVencimiento} onChange={(e) => updateRow(row.key, 'fechaVencimiento', e.target.value)}
+                  <DateTextInput value={row.fechaVencimiento} onChange={(value) => updateRow(row.key, 'fechaVencimiento', value)}
                     className="h-9 w-full rounded-xl border border-gray-200 px-2 text-sm focus:border-brand focus:outline-none" />
                 </td>
                 <td className="px-4 py-2">
@@ -319,7 +287,6 @@ export default function NuevaRecepcion() {
       <div className="mt-6 flex items-center justify-between rounded-2xl border border-gray-100 bg-white px-6 py-4 shadow-sm">
         <div className="flex items-center gap-6 text-sm text-gray-600">
           <span>Total Items: <span className="font-bold text-gray-900">{totalItems}</span></span>
-          <span>Total $: <span className="font-bold text-gray-900">${totalPrecio.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span></span>
         </div>
         <div className="flex gap-3">
           <button onClick={() => navigate('/recepciones')}
@@ -329,24 +296,24 @@ export default function NuevaRecepcion() {
           <button onClick={handleSaveDraft} disabled={saving}
             className="rounded-xl border border-brand px-5 py-2.5 text-sm font-medium text-brand hover:bg-green-50 disabled:opacity-50">
             {saving ? <Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> : null}
-            Guardar borrador
+            Guardar recepción
           </button>
-          <button onClick={handleOpenConfirm} disabled={saving}
+          <button onClick={handleOpenSave} disabled={saving}
             className="rounded-xl bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-light disabled:opacity-50">
             {saving ? <Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> : null}
-            Confirmar e ingresar al stock
+            Guardar y revisar
           </button>
         </div>
       </div>
 
       <ConfirmModal
         isOpen={confirmModalOpen}
-        title="Confirmar recepción"
-        description="Esta acción procesará la recepción, confirmará lo recibido e ingresará los medicamentos al stock."
-        confirmLabel="Confirmar"
+        title="Guardar recepción"
+        description="La recepción quedará procesada y pendiente de confirmación para ingresar los medicamentos al stock."
+        confirmLabel="Guardar"
         cancelLabel="Cancelar"
         loading={saving}
-        onConfirm={handleConfirmAndProcess}
+        onConfirm={handleSaveRecepcion}
         onCancel={() => setConfirmModalOpen(false)}
       />
     </div>

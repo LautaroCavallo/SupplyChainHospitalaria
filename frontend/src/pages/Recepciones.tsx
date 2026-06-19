@@ -7,6 +7,7 @@ import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
 import RecepcionDetalleModal from '../components/recepciones/RecepcionDetalleModal';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
+import FilterTabs from '../components/common/FilterTabs';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 const estadoBadge: Record<EstadoRecepcion, { label: string; variant: 'success' | 'warning' | 'info' }> = {
@@ -136,21 +137,7 @@ export default function Recepciones() {
 
       {/* Tabs + counter */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setEstadoFilter(tab.value)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                estadoFilter === tab.value
-                  ? 'bg-brand text-white'
-                  : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <FilterTabs tabs={tabs} active={estadoFilter} onChange={setEstadoFilter} />
         {data && (
           <p className="text-sm text-gray-500">
             Mostrando {startIndex}–{endIndex} de {data.total} recepciones
@@ -222,6 +209,13 @@ export default function Recepciones() {
                             </button>
                           ) : r.estado === 'PROCESADA' ? (
                             <>
+                              <button
+                                onClick={() => navigate(`/recepciones/${r.id}/editar`)}
+                                title="Editar recepción"
+                                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
                               <button
                                 onClick={() => handleConfirmRecepcion(r)}
                                 disabled={processingId === r.id}

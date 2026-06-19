@@ -1,15 +1,16 @@
 import prisma from '../prisma-client';
-import { ISolicitudCompraRepository, FiltrosSolicitudCompra, CreateSolicitudCompraData, UpdateSolicitudCompraData } from '../../../domain/repositories/ISolicitudCompraRepository';
+import { ISolicitudCompraRepository, FiltrosSolicitudCompra, CreateSolicitudCompraData, UpdateSolicitudCompraData, UpdateBorradorData } from '../../../domain/repositories/ISolicitudCompraRepository';
 import { SolicitudCompra } from '../../../domain/entities/SolicitudCompra';
 
 const solicitudInclude = {
   detalles: { include: { producto: true } },
   proveedorSugerido: true,
+  recepcion: { select: { id: true, estado: true } },
 } as const;
 
 export class PrismaSolicitudCompraRepository implements ISolicitudCompraRepository {
-  async findAll(filtros: FiltrosSolicitudCompra = {}): Promise<SolicitudCompra[]> {
-    const { estado, prioridad, usuarioId, fechaDesde, fechaHasta, page = 1, limit = 20 } = filtros;
+  private buildWhere(filtros: FiltrosSolicitudCompra): any {
+    const { estado, prioridad, usuarioId, fechaDesde, fechaHasta } = filtros;
     const where: any = {};
 
     if (estado) where.estado = estado;
@@ -21,13 +22,23 @@ export class PrismaSolicitudCompraRepository implements ISolicitudCompraReposito
       if (fechaHasta) where.createdAt.lte = fechaHasta;
     }
 
+    return where;
+  }
+
+  async findAll(filtros: FiltrosSolicitudCompra = {}): Promise<SolicitudCompra[]> {
+    const { page = 1, limit = 20 } = filtros;
+
     return prisma.solicitudCompra.findMany({
-      where,
+      where: this.buildWhere(filtros),
       skip: (page - 1) * limit,
       take: limit,
       include: solicitudInclude,
       orderBy: { createdAt: 'desc' },
     }) as any;
+  }
+
+  async count(filtros: FiltrosSolicitudCompra = {}): Promise<number> {
+    return prisma.solicitudCompra.count({ where: this.buildWhere(filtros) });
   }
 
   async findById(id: string): Promise<SolicitudCompra | null> {
@@ -43,6 +54,7 @@ export class PrismaSolicitudCompraRepository implements ISolicitudCompraReposito
     return prisma.solicitudCompra.create({
       data: {
         ...solicitudData,
+        estado: solicitudData.estado ?? 'PENDIENTE',
         detalles: {
           create: detalles.map((d) => ({
             productoId: d.productoId,
@@ -85,5 +97,42 @@ export class PrismaSolicitudCompraRepository implements ISolicitudCompraReposito
       where: { id },
       include: solicitudInclude,
     }) as any;
+  }
+
+  async delete(id: string): Promise<void> {
+    await prisma.solicitudCompra.delete({ where: { id } });
+  }
+
+  async updateBorrador(id: string, data: UpdateBorradorData): Promise<SolicitudCompra> {
+    const { detalles, ...cabecera } = data;
+
+    return prisma.$transaction(async (tx) => {
+      // Actualizar cabecera (solo campos definidos)
+      await tx.solicitudCompra.update({
+        where: { id },
+        data: {
+          ...(cabecera.prioridad !== undefined && { prioridad: cabecera.prioridad }),
+          ...(cabecera.motivo !== undefined && { motivo: cabecera.motivo }),
+          ...(cabecera.proveedorSugeridoId !== undefined && { proveedorSugeridoId: cabecera.proveedorSugeridoId }),
+          ...(cabecera.observaciones !== undefined && { observaciones: cabecera.observaciones }),
+        },
+      });
+
+      // Reemplazar detalles por completo (agregar / modificar / eliminar)
+      await tx.solicitudCompraDetalle.deleteMany({ where: { solicitudId: id } });
+      await tx.solicitudCompraDetalle.createMany({
+        data: detalles.map((d) => ({
+          solicitudId: id,
+          productoId: d.productoId,
+          cantidadSolicitada: d.cantidadSolicitada,
+          unidad: d.unidad ?? 'unidad',
+        })),
+      });
+
+      return tx.solicitudCompra.findUniqueOrThrow({
+        where: { id },
+        include: solicitudInclude,
+      }) as any;
+    });
   }
 }

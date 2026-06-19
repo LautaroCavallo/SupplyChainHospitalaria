@@ -109,9 +109,10 @@ model MovimientoStock {
 model Recepcion {
   id              String   @id @default(uuid())
   proveedorId     String
+  solicitudCompraId String? @unique
   remito          String?
   fechaRecepcion  DateTime
-  estado          String   @default("BORRADOR")
+  estado          String   @default("PROCESADA")
   observaciones   String?
   usuarioId       String?
   totalItems      Int      @default(0)
@@ -119,6 +120,7 @@ model Recepcion {
   updatedAt       DateTime @updatedAt
 
   proveedor       Proveedor          @relation(fields: [proveedorId], references: [id])
+  solicitudCompra SolicitudCompra?   @relation(fields: [solicitudCompraId], references: [id])
   detalles        RecepcionDetalle[]
 
   @@map("recepciones")
@@ -131,8 +133,8 @@ model RecepcionDetalle {
   cantidad            Int
   ean                 String?
   troquel             String?
-  lote                String
-  fechaVencimiento    DateTime
+  lote                String?
+  fechaVencimiento    DateTime?
   createdAt           DateTime @default(now())
 
   recepcion           Recepcion          @relation(fields: [recepcionId], references: [id], onDelete: Cascade)
@@ -159,6 +161,7 @@ model SolicitudCompra {
   updatedAt                  DateTime  @updatedAt
 
   detalles                   SolicitudCompraDetalle[]
+  recepcion                  Recepcion?
   proveedorSugerido          Proveedor? @relation("ProveedorSugerido", fields: [proveedorSugeridoId], references: [id])
 
   @@map("solicitudes_compra")

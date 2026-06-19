@@ -15,8 +15,8 @@ export class ActualizarRecepcion {
       throw new NotFoundError(`Recepción con id ${id} no encontrada`);
     }
 
-    if (recepcion.estado !== 'BORRADOR') {
-      throw new ConflictError('Solo se pueden modificar recepciones en estado BORRADOR');
+    if (!['BORRADOR', 'PROCESADA'].includes(recepcion.estado)) {
+      throw new ConflictError('Solo se pueden modificar recepciones en estado BORRADOR o PROCESADA');
     }
 
     const proveedor = await this.proveedorRepository.findById(dto.proveedorId);
@@ -26,6 +26,7 @@ export class ActualizarRecepcion {
 
     const result = await this.recepcionRepository.update(id, {
       proveedorId: dto.proveedorId,
+      solicitudCompraId: dto.solicitudCompraId,
       remito: dto.remito,
       fechaRecepcion: dto.fechaRecepcion ? new Date(dto.fechaRecepcion) : undefined,
       observaciones: dto.observaciones,
@@ -35,7 +36,7 @@ export class ActualizarRecepcion {
         ean: d.ean,
         troquel: d.troquel,
         lote: d.lote,
-        fechaVencimiento: new Date(d.fechaVencimiento),
+        fechaVencimiento: d.fechaVencimiento ? new Date(d.fechaVencimiento) : undefined,
       })),
     });
 
