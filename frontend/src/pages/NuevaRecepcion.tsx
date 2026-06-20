@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Loader2, ChevronLeft, Search } from 'lucide-react';
 import { getProveedores } from '../api/proveedores';
 import { crearRecepcion } from '../api/recepciones';
-import { getInventario } from '../api/inventario';
+import { getInventario, getProductoPorEan } from '../api/inventario';
 import type { Proveedor, ProductoInventario } from '../types';
 import ConfirmModal from '../components/common/ConfirmModal';
 import DateTextInput from '../components/common/DateTextInput';
@@ -77,6 +77,26 @@ export default function NuevaRecepcion() {
     setActiveSearchRow(null);
     setSearchQuery('');
   };
+
+  const handleEanChange = useCallback(async (rowKey: number, ean: string) => {
+    setRows((prev) => prev.map((r) => (r.key === rowKey ? { ...r, ean } : r)));
+    const isValidEan = /^\d{8}$|^\d{12}$|^\d{13}$/.test(ean.trim());
+    if (!isValidEan) return;
+    try {
+      const prod = await getProductoPorEan(ean.trim());
+      if (prod) {
+        setRows((prev) =>
+          prev.map((r) =>
+            r.key === rowKey
+              ? { ...r, productoId: prod.id, nombreProducto: prod.nombre, ean: prod.ean ?? ean, troquel: prod.troquel ?? '' }
+              : r
+          )
+        );
+      }
+    } catch {
+      // EAN no registrado: el usuario puede completar manualmente
+    }
+  }, []);
 
   const updateRow = (key: number, field: keyof DetalleRow, value: string | number) => {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
@@ -246,7 +266,8 @@ export default function NuevaRecepcion() {
                     className="h-9 w-full rounded-xl border border-gray-200 px-2 text-sm text-center focus:border-brand focus:outline-none" />
                 </td>
                 <td className="px-4 py-2">
-                  <input type="text" value={row.ean} onChange={(e) => updateRow(row.key, 'ean', e.target.value)}
+                  <input type="text" value={row.ean} onChange={(e) => handleEanChange(row.key, e.target.value)}
+                    placeholder="EAN (auto-carga)"
                     className="h-9 w-full rounded-xl border border-gray-200 px-2 text-sm focus:border-brand focus:outline-none" />
                 </td>
                 <td className="px-4 py-2">

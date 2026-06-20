@@ -182,3 +182,17 @@ model SolicitudCompraDetalle {
 
   @@map("solicitud_compra_detalles")
 }
+
+model Notificacion {
+  id          String   @id @default(uuid())
+  tipo        String
+  titulo      String
+  descripcion String
+  leida       Boolean  @default(false)
+  referencia  String?
+  usuarioId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("notificaciones")
+}

@@ -19,8 +19,19 @@ export class RecetaController {
 
   consumir = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      await this.consumirReceta.execute(req.params.id as string, req.body.items, req.user?.nombre ?? req.user?.id);
-      res.json({ success: true, message: 'Receta consumida exitosamente' });
+      const result = await this.consumirReceta.execute(
+        req.params.id as string,
+        req.body.items,
+        req.user?.nombre ?? req.user?.id,
+      );
+      res.json({
+        success: true,
+        message: 'Receta consumida exitosamente',
+        data: {
+          itemsConsumidos: result.itemsConsumidos,
+          totalMedicamentos: result.totalMedicamentos,
+        },
+      });
     } catch (error) {
       next(error);
     }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FileText, QrCode, CheckCircle2, Loader2 } from 'lucide-react';
-import { validarReceta, registrarConsumo } from '../api/pacientes';
+import { validarReceta, registrarConsumo, type ConsumoResult } from '../api/pacientes';
 import type { RecetaDetalle } from '../types';
 import ConfirmModal from '../components/common/ConfirmModal';
 import QRScannerModal from '../components/pacientes/QRScannerModal';
@@ -17,6 +17,7 @@ export default function Pacientes() {
   const [consumos, setConsumos] = useState<Record<number, number>>({});
   const [savingConsumo, setSavingConsumo] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [consumoResult, setConsumoResult] = useState<ConsumoResult | null>(null);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const [confirmConsumoOpen, setConfirmConsumoOpen] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
@@ -34,7 +35,11 @@ export default function Pacientes() {
       const result = await validarReceta(idToUse);
       setReceta(result);
       setRecetaId(idToUse);
-      setConsumos(Object.fromEntries(result.items.map((item, index) => [index, item.cantAutorizada])));
+      setConsumoResult(null);
+      // Si ya está consumida mostrar lo que se dispensó; si no, pre-cargar el máximo autorizado
+      setConsumos(Object.fromEntries(
+        result.items.map((item, index) => [index, result.consumida ? item.cantConsumida : item.cantAutorizada])
+      ));
 
       if (!result.valida) {
         const message = result.errores?.length
@@ -83,7 +88,8 @@ export default function Pacientes() {
         }))
         .filter((item) => item.cantConsumo > 0);
 
-      await registrarConsumo(receta.id, items);
+      const result = await registrarConsumo(receta.id, items);
+      setConsumoResult(result);
       setSuccessMsg('Consumo registrado exitosamente');
       setReceta((current) => current ? { ...current, consumida: true, estado: 'Consumida' } : current);
     } catch (err: any) {
@@ -178,7 +184,17 @@ export default function Pacientes() {
             <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
           )}
           {successMsg && (
-            <p className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{successMsg}</p>
+            <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
+              <p className="font-semibold">{successMsg}</p>
+              {consumoResult && consumoResult.itemsConsumidos.length > 0 && (
+                <ul className="mt-1.5 space-y-0.5 text-xs text-green-600">
+                  {consumoResult.itemsConsumidos.map((item, i) => (
+                    <li key={i}>· {item.productoNombre}: <span className="font-bold">{item.cantidad}</span> unidad(es)</li>
+                  ))}
+                  <li className="mt-1 font-semibold">Total: {consumoResult.totalMedicamentos} unidad(es)</li>
+                </ul>
+              )}
+            </div>
           )}
 
           {/* Doctor info */}
@@ -243,7 +259,8 @@ export default function Pacientes() {
                         max={item.cantAutorizada}
                         value={consumos[index] ?? item.cantConsumida}
                         onChange={(e) => setConsumos((prev) => ({ ...prev, [index]: Number(e.target.value) }))}
-                        className="h-9 w-16 rounded-xl border border-gray-200 text-center text-sm font-semibold focus:border-brand focus:outline-none"
+                        disabled={receta.consumida}
+                        className="h-9 w-16 rounded-xl border border-gray-200 text-center text-sm font-semibold focus:border-brand focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
                       />
                     </td>
                   </tr>

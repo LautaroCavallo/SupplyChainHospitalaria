@@ -1,6 +1,7 @@
 import { IRecetaService } from '../../../domain/services/IRecetaService';
 import { IInventarioRepository } from '../../../domain/repositories/IInventarioRepository';
 import { IMovimientoStockRepository } from '../../../domain/repositories/IMovimientoStockRepository';
+import { INotificacionRepository } from '../../../domain/repositories/INotificacionRepository';
 import { ValidationError } from '../../errors/AppError';
 
 interface ItemReceta {
@@ -11,14 +12,20 @@ interface ItemReceta {
   loteId?: string;
 }
 
+export interface ConsumirRecetaResult {
+  itemsConsumidos: Array<{ productoNombre: string; cantidad: number }>;
+  totalMedicamentos: number;
+}
+
 export class ConsumirReceta {
   constructor(
     private readonly recetaService: IRecetaService,
     private readonly inventarioRepository: IInventarioRepository,
     private readonly movimientoRepository: IMovimientoStockRepository,
+    private readonly notificacionRepository: INotificacionRepository,
   ) {}
 
-  async execute(recetaId: string, items: ItemReceta[], usuarioId?: string): Promise<void> {
+  async execute(recetaId: string, items: ItemReceta[], usuarioId?: string): Promise<ConsumirRecetaResult> {
     const validacion = await this.recetaService.validarReceta(recetaId);
     if (!validacion.valida) {
       throw new ValidationError(`La receta ${recetaId} no es válida`);
@@ -101,5 +108,27 @@ export class ConsumirReceta {
     if (registro.errores.length > 0) {
       throw new ValidationError(registro.errores.join('; '));
     }
+
+    // Crear notificación de receta dispensada
+    try {
+      const totalUnidades = registro.itemsConsumidos.reduce((s, i) => s + i.cantidad, 0);
+      await this.notificacionRepository.create({
+        tipo: 'receta_validada',
+        titulo: `Receta dispensada: ${recetaId}`,
+        descripcion: `Se dispensaron ${registro.itemsConsumidos.length} medicamento(s), ${totalUnidades} unidad(es) en total.`,
+        referencia: recetaId,
+        usuarioId,
+      });
+    } catch {
+      // No interrumpir el flujo si falla la notificación
+    }
+
+    return {
+      itemsConsumidos: registro.itemsConsumidos.map((i) => ({
+        productoNombre: i.productoNombre,
+        cantidad: i.cantidad,
+      })),
+      totalMedicamentos: registro.itemsConsumidos.reduce((s, i) => s + i.cantidad, 0),
+    };
   }
 }

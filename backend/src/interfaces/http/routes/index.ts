@@ -10,6 +10,7 @@ import { recetaRoutes } from './receta.routes';
 import { authRoutes } from './auth.routes';
 import { medicamentoRoutes } from './medicamento.routes';
 import { dashboardRoutes } from './dashboard.routes';
+import { notificacionRoutes } from './notificacion.routes';
 
 export function createRoutes(container: Container): Router {
   const router = Router();
@@ -24,6 +25,7 @@ export function createRoutes(container: Container): Router {
   router.use('/alertas', alertaRoutes(container));
   router.use('/solicitudes-compra', solicitudCompraRoutes(container));
   router.use('/recetas', recetaRoutes(container));
+  router.use('/notificaciones', notificacionRoutes(container));
 
   return router;
 }
