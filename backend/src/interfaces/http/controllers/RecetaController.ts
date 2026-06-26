@@ -23,6 +23,7 @@ export class RecetaController {
         req.params.id as string,
         req.body.items,
         req.user?.nombre ?? req.user?.id,
+        req.body.depositoId,
       );
       res.json({
         success: true,

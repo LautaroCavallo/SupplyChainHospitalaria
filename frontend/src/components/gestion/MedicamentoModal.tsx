@@ -25,6 +25,7 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
   const [laboratorio, setLaboratorio] = useState('');
   const [estado, setEstado] = useState<Estado>('ACTIVO');
   const [precio, setPrecio] = useState('');
+  const [stockCritico, setStockCritico] = useState('');
   const [observaciones, setObservaciones] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,11 +41,12 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
       setLaboratorio(medicamento.laboratorio ?? '');
       setEstado(medicamento.estado);
       setPrecio(medicamento.precio?.toString() ?? '');
+      setStockCritico(medicamento.stockCritico?.toString() ?? '');
       setObservaciones(medicamento.observaciones ?? '');
     } else {
       setNombre(''); setCategoria(''); setPresentacion('');
       setEan(''); setLaboratorio(''); setEstado('ACTIVO');
-      setPrecio(''); setObservaciones('');
+      setPrecio(''); setStockCritico(''); setObservaciones('');
     }
     setError(null);
   }, [medicamento, isOpen]);
@@ -60,6 +62,7 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
         laboratorio: laboratorio || undefined,
         estado,
         precio: precio ? Number(precio) : undefined,
+        stockCritico: stockCritico !== '' ? Number(stockCritico) : undefined,
         observaciones: observaciones || undefined,
       };
       if (isEdit && medicamento) {
@@ -187,16 +190,26 @@ export default function MedicamentoModal({ isOpen, onClose, medicamento }: Props
               </div>
             </div>
 
-            {/* Precio (optional, left) */}
+            {/* Precio + Stock crítico (left) */}
             <div>
               <div className={sectionHeadCls}>
                 <DollarSign className="h-3.5 w-3.5" />
-                Precio
+                Precio y Stock
               </div>
-              <div>
-                <label className={labelCls}>Precio de Venta al Público</label>
-                <input type="number" min={0} step="0.01" value={precio} onChange={(e) => setPrecio(e.target.value)}
-                  placeholder="$0.00" className={inputCls} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={`${labelCls} min-h-[2rem] leading-tight`}>Precio de Venta al Público</label>
+                  <input type="number" min={0} step="0.01" value={precio} onChange={(e) => setPrecio(e.target.value)}
+                    placeholder="$0.00" className={inputCls} />
+                </div>
+                <div>
+                  <label className={`${labelCls} min-h-[2rem] leading-tight`}>Stock Crítico</label>
+                  <input type="number" min={0} value={stockCritico} onChange={(e) => setStockCritico(e.target.value)}
+                    placeholder="Ej: 50" className={inputCls} />
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Stock mínimo (aviso): {stockCritico !== '' ? Number(stockCritico) * 2 : '—'}
+                  </p>
+                </div>
               </div>
             </div>
 

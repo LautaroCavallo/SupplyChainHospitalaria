@@ -11,6 +11,7 @@ import { authRoutes } from './auth.routes';
 import { medicamentoRoutes } from './medicamento.routes';
 import { dashboardRoutes } from './dashboard.routes';
 import { notificacionRoutes } from './notificacion.routes';
+import { depositoRoutes } from './deposito.routes';
 
 export function createRoutes(container: Container): Router {
   const router = Router();
@@ -26,6 +27,7 @@ export function createRoutes(container: Container): Router {
   router.use('/solicitudes-compra', solicitudCompraRoutes(container));
   router.use('/recetas', recetaRoutes(container));
   router.use('/notificaciones', notificacionRoutes(container));
+  router.use('/depositos', depositoRoutes(container));
 
   return router;
 }

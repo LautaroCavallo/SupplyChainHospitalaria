@@ -7,6 +7,12 @@ export type CategoriaProducto =
   | 'REACTIVO'
   | 'OTRO';
 
+/**
+ * Factor para derivar el stock mínimo a partir del stock crítico.
+ * El "mínimo" (umbral de aviso temprano) es siempre el doble del crítico.
+ */
+export const FACTOR_STOCK_MINIMO = 2;
+
 export class ProductoInventario {
   readonly id: string;
   nombre: string;
@@ -17,7 +23,6 @@ export class ProductoInventario {
   ean?: string;
   troquel?: string;
   stockActual: number;
-  stockMinimo: number;
   stockCritico: number;
   unidad: string;
   proveedorId?: string;
@@ -72,7 +77,6 @@ export class ProductoInventario {
     this.ean = props.ean;
     this.troquel = props.troquel;
     this.stockActual = props.stockActual ?? 0;
-    this.stockMinimo = props.stockMinimo ?? 0;
     this.stockCritico = props.stockCritico ?? 0;
     this.unidad = props.unidad;
     this.proveedorId = props.proveedorId;
@@ -82,6 +86,11 @@ export class ProductoInventario {
     this.activo = props.activo ?? true;
     this.createdAt = props.createdAt ?? new Date();
     this.updatedAt = props.updatedAt ?? new Date();
+  }
+
+  /** Stock mínimo (umbral de aviso temprano) derivado del crítico. */
+  get stockMinimo(): number {
+    return this.stockCritico * FACTOR_STOCK_MINIMO;
   }
 
   isSinStock(): boolean {
@@ -114,16 +123,8 @@ export class ProductoInventario {
       errores.push('La unidad es requerida');
     }
 
-    if (this.stockMinimo < 0) {
-      errores.push('El stock mínimo no puede ser negativo');
-    }
-
     if (this.stockCritico < 0) {
       errores.push('El stock crítico no puede ser negativo');
-    }
-
-    if (this.stockCritico > this.stockMinimo) {
-      errores.push('El stock crítico no puede ser mayor al stock mínimo');
     }
 
     return errores;

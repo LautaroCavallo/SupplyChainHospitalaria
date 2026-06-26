@@ -71,10 +71,27 @@ model ProductoInventario {
   @@map("productos_inventario")
 }
 
+model Deposito {
+  id          String   @id @default(uuid())
+  nombre      String
+  tipo        String   @default("PISO")   // CENTRAL | PISO
+  descripcion String?
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lotes               Lote[]
+  movimientosOrigen   MovimientoStock[] @relation("MovimientoDepositoOrigen")
+  movimientosDestino  MovimientoStock[] @relation("MovimientoDepositoDestino")
+
+  @@map("depositos")
+}
+
 model Lote {
   id                  String   @id @default(uuid())
   numeroLote          String
   productoId          String
+  depositoId          String
   fechaVencimiento    DateTime
   stockDisponible     Int      @default(0)
   stockInicial        Int      @default(0)
@@ -83,25 +100,30 @@ model Lote {
   updatedAt           DateTime @updatedAt
 
   producto            ProductoInventario @relation(fields: [productoId], references: [id])
+  deposito            Deposito           @relation(fields: [depositoId], references: [id])
   movimientos         MovimientoStock[]
 
-  @@unique([productoId, numeroLote])
+  @@unique([productoId, numeroLote, depositoId])
   @@map("lotes")
 }
 
 model MovimientoStock {
-  id              String   @id @default(uuid())
-  productoId      String
-  loteId          String?
-  tipo            String
-  cantidad        Int
-  motivo          String
-  referencia      String?
-  usuarioId       String?
-  createdAt       DateTime @default(now())
+  id                 String   @id @default(uuid())
+  productoId         String
+  loteId             String?
+  depositoId         String?
+  depositoDestinoId  String?
+  tipo               String
+  cantidad           Int
+  motivo             String
+  referencia         String?
+  usuarioId          String?
+  createdAt          DateTime @default(now())
 
-  producto        ProductoInventario @relation(fields: [productoId], references: [id])
-  lote            Lote?              @relation(fields: [loteId], references: [id])
+  producto         ProductoInventario @relation(fields: [productoId], references: [id])
+  lote             Lote?              @relation(fields: [loteId], references: [id])
+  deposito         Deposito?          @relation("MovimientoDepositoOrigen", fields: [depositoId], references: [id])
+  depositoDestino  Deposito?          @relation("MovimientoDepositoDestino", fields: [depositoDestinoId], references: [id])
 
   @@map("movimientos_stock")
 }

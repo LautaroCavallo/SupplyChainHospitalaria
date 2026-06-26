@@ -4,6 +4,7 @@ export class Lote {
   readonly id: string;
   numeroLote: string;
   productoId: string;
+  depositoId: string;
   fechaVencimiento: Date;
   stockDisponible: number;
   stockInicial: number;
@@ -15,6 +16,7 @@ export class Lote {
     id: string;
     numeroLote: string;
     productoId: string;
+    depositoId: string;
     fechaVencimiento: Date;
     stockDisponible: number;
     stockInicial: number;
@@ -25,6 +27,7 @@ export class Lote {
     this.id = props.id;
     this.numeroLote = props.numeroLote;
     this.productoId = props.productoId;
+    this.depositoId = props.depositoId;
     this.fechaVencimiento = props.fechaVencimiento;
     this.stockDisponible = props.stockDisponible;
     this.stockInicial = props.stockInicial;

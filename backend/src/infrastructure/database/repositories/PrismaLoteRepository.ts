@@ -10,9 +10,14 @@ export class PrismaLoteRepository implements ILoteRepository {
   async findByProductoId(productoId: string): Promise<Lote[]> {
     const data = await prisma.lote.findMany({
       where: { productoId },
+      include: { deposito: true },
       orderBy: { fechaVencimiento: 'asc' },
     });
-    return data.map(this.toEntity);
+    return data.map((raw) => {
+      const entity = this.toEntity(raw);
+      (entity as any).depositoNombre = (raw as any).deposito?.nombre ?? '';
+      return entity;
+    });
   }
 
   async findById(id: string): Promise<Lote | null> {

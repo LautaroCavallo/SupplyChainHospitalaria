@@ -89,6 +89,8 @@ export interface LoteResponseDTO {
   id: string;
   numeroLote: string;
   productoId: string;
+  depositoId: string;
+  depositoNombre: string;
   fechaVencimiento: Date;
   stockDisponible: number;
   stockInicial: number;

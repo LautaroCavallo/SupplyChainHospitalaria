@@ -10,6 +10,8 @@ export class ObtenerLotes {
       id: lote.id,
       numeroLote: lote.numeroLote,
       productoId: lote.productoId,
+      depositoId: lote.depositoId,
+      depositoNombre: (lote as any).depositoNombre ?? '',
       fechaVencimiento: lote.fechaVencimiento,
       stockDisponible: lote.stockDisponible,
       stockInicial: lote.stockInicial,

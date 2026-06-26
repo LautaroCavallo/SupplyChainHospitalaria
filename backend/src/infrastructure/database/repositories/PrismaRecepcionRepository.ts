@@ -139,6 +139,14 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
         }) as any;
       }
 
+      // La mercadería ingresa al depósito Central por defecto
+      const central = await tx.deposito.findFirst({ where: { tipo: 'CENTRAL', activo: true } })
+        ?? await tx.deposito.findFirst({ where: { activo: true } });
+      if (!central) {
+        throw new Error('No hay un depósito configurado para ingresar la recepción');
+      }
+      const depositoIngresoId = central.id;
+
       for (const detalle of recepcion.detalles) {
         if (!detalle.lote || !detalle.fechaVencimiento) {
           throw new Error('La recepción debe tener lote y fecha de vencimiento en todos sus detalles');
@@ -146,9 +154,10 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
 
         const loteExistente = await tx.lote.findUnique({
           where: {
-            productoId_numeroLote: {
+            productoId_numeroLote_depositoId: {
               productoId: detalle.productoId,
               numeroLote: detalle.lote,
+              depositoId: depositoIngresoId,
             },
           },
         });
@@ -167,6 +176,7 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
               data: {
                 productoId: detalle.productoId,
                 numeroLote: detalle.lote,
+                depositoId: depositoIngresoId,
                 fechaVencimiento: detalle.fechaVencimiento,
                 stockInicial: detalle.cantidad,
                 stockDisponible: detalle.cantidad,
@@ -183,6 +193,7 @@ export class PrismaRecepcionRepository implements IRecepcionRepository {
           data: {
             productoId: detalle.productoId,
             loteId: lote.id,
+            depositoId: depositoIngresoId,
             tipo: 'INGRESO',
             cantidad: detalle.cantidad,
             motivo: `Recepción ${recepcion.id} - Remito: ${recepcion.remito ?? 'S/N'}`,
