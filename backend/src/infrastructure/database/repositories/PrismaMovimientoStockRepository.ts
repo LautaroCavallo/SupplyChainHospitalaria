@@ -95,6 +95,8 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
       data: {
         productoId: data.productoId,
         loteId: data.loteId ?? null,
+        depositoId: data.depositoId ?? null,
+        depositoDestinoId: data.depositoDestinoId ?? null,
         tipo: data.tipo,
         cantidad: data.cantidad,
         motivo: data.motivo,
@@ -150,6 +152,7 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
             productoId: item.productoId,
             stockDisponible: { gt: 0 },
             fechaVencimiento: { gte: today },
+            ...(data.depositoId ? { depositoId: data.depositoId } : {}),
           },
           orderBy: [
             { fechaVencimiento: 'asc' },
@@ -181,6 +184,7 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
             productoId: item.productoId,
             stockDisponible: { gt: 0 },
             fechaVencimiento: { gte: today },
+            ...(data.depositoId ? { depositoId: data.depositoId } : {}),
           },
           orderBy: [
             { fechaVencimiento: 'asc' },
@@ -202,6 +206,7 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
             data: {
               productoId: item.productoId,
               loteId: lote.id,
+              depositoId: lote.depositoId,
               tipo: 'CONSUMO_RECETA',
               cantidad: cantidadDelLote,
               motivo: `Consumo por receta ${data.recetaId} - Lote ${lote.numeroLote}`,

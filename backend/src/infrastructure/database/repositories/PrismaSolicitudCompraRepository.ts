@@ -103,6 +103,19 @@ export class PrismaSolicitudCompraRepository implements ISolicitudCompraReposito
     await prisma.solicitudCompra.delete({ where: { id } });
   }
 
+  async existeSolicitudActivaParaProducto(productoId: string): Promise<boolean> {
+    // "Abierta" = cualquier estado que no sea RECHAZADA
+    const count = await prisma.solicitudCompraDetalle.count({
+      where: {
+        productoId,
+        solicitud: {
+          estado: { in: ['BORRADOR', 'PENDIENTE', 'ENVIADA', 'APROBADA', 'EN_RECEPCION'] },
+        },
+      },
+    });
+    return count > 0;
+  }
+
   async updateBorrador(id: string, data: UpdateBorradorData): Promise<SolicitudCompra> {
     const { detalles, ...cabecera } = data;
 

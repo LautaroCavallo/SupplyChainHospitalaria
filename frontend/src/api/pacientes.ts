@@ -32,8 +32,9 @@ export interface ConsumoResult {
 export async function registrarConsumo(
   recetaId: string,
   items: { medicamento: string; cantConsumo: number }[],
+  depositoId?: string,
 ): Promise<ConsumoResult> {
-  const res = await api.post(`/recetas/${recetaId}/consumir`, { items });
+  const res = await api.post(`/recetas/${recetaId}/consumir`, { items, depositoId });
   const data = res.data.data ?? {};
   return {
     itemsConsumidos: data.itemsConsumidos ?? [],

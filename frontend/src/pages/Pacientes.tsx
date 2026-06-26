@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FileText, QrCode, CheckCircle2, Loader2 } from 'lucide-react';
 import { validarReceta, registrarConsumo, type ConsumoResult } from '../api/pacientes';
-import type { RecetaDetalle } from '../types';
+import { getDepositos } from '../api/depositos';
+import type { RecetaDetalle, Deposito } from '../types';
 import ConfirmModal from '../components/common/ConfirmModal';
 import QRScannerModal from '../components/pacientes/QRScannerModal';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
@@ -20,6 +21,19 @@ export default function Pacientes() {
   const [consumoResult, setConsumoResult] = useState<ConsumoResult | null>(null);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const [confirmConsumoOpen, setConfirmConsumoOpen] = useState(false);
+  const [depositos, setDepositos] = useState<Deposito[]>([]);
+  const [depositoId, setDepositoId] = useState('');
+
+  useEffect(() => {
+    getDepositos(true)
+      .then((deps) => {
+        setDepositos(deps);
+        // Preseleccionar el depósito central por defecto
+        const central = deps.find((d) => d.tipo === 'CENTRAL') ?? deps[0];
+        if (central) setDepositoId(central.id);
+      })
+      .catch(() => setDepositos([]));
+  }, []);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
     key: 'medicamento',
     direction: 'asc',
@@ -88,7 +102,7 @@ export default function Pacientes() {
         }))
         .filter((item) => item.cantConsumo > 0);
 
-      const result = await registrarConsumo(receta.id, items);
+      const result = await registrarConsumo(receta.id, items, depositoId || undefined);
       setConsumoResult(result);
       setSuccessMsg('Consumo registrado exitosamente');
       setReceta((current) => current ? { ...current, consumida: true, estado: 'Consumida' } : current);
@@ -268,7 +282,22 @@ export default function Pacientes() {
               </tbody>
             </table>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex items-end justify-between gap-4">
+              <div className="w-56">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Dispensar desde
+                </label>
+                <select
+                  value={depositoId}
+                  onChange={(e) => setDepositoId(e.target.value)}
+                  disabled={receta.consumida}
+                  className="h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:border-brand focus:outline-none disabled:bg-gray-50"
+                >
+                  {depositos.map((d) => (
+                    <option key={d.id} value={d.id}>{d.nombre}</option>
+                  ))}
+                </select>
+              </div>
               <button
                 onClick={handleOpenConfirmConsumo}
                 disabled={savingConsumo || receta.consumida || !receta.valida}

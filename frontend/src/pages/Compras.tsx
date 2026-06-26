@@ -191,12 +191,12 @@ export default function Compras() {
 
       {/* Historial de Solicitudes */}
       <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-6 py-5">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Historial de Solicitudes</h2>
             <p className="mt-0.5 text-xs text-gray-400">Gestion detallada de pedidos pasados y pendientes.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <FilterTabs tabs={tabs} active={estadoFilter} onChange={setEstadoFilter} size="sm" />
             <button className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
               <Filter className="h-3.5 w-3.5" />
@@ -215,6 +215,7 @@ export default function Compras() {
           </div>
         ) : (
           <>
+            <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
@@ -325,6 +326,7 @@ export default function Compras() {
                 )}
               </tbody>
             </table>
+            </div>
 
             <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
               <p className="text-sm text-gray-500">

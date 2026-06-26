@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ChevronRight, History, AlertTriangle, Loader2, SlidersHorizontal } from 'lucide-react';
+import { ChevronRight, History, AlertTriangle, Loader2, SlidersHorizontal, ArrowLeftRight } from 'lucide-react';
 import { ajustarStock, getProducto, getLotes } from '../api/inventario';
-import type { ProductoInventario, Lote, NivelStock, EstadoLote } from '../types';
+import { getStockPorDeposito } from '../api/depositos';
+import type { ProductoInventario, Lote, NivelStock, EstadoLote, StockPorDeposito } from '../types';
 import Badge from '../components/common/Badge';
 import Pagination from '../components/common/Pagination';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import AjusteStockModal from '../components/inventario/AjusteStockModal';
+import TransferenciaModal from '../components/inventario/TransferenciaModal';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
 
 function formatDate(d: string): string {
@@ -67,6 +69,8 @@ export default function InventarioDetalle() {
   const [error, setError] = useState<string | null>(null);
   const [ajusteModal, setAjusteModal] = useState(false);
   const [selectedLote, setSelectedLote] = useState<Lote | null>(null);
+  const [stockDeposito, setStockDeposito] = useState<StockPorDeposito[]>([]);
+  const [transferModal, setTransferModal] = useState(false);
   const [sort, setSort] = useState<{ key: SortKey; direction: SortDirection }>({
     key: 'fechaVencimiento',
     direction: 'asc',
@@ -77,9 +81,14 @@ export default function InventarioDetalle() {
     try {
       setLoading(true);
       setError(null);
-      const [prod, lotesRes] = await Promise.all([getProducto(id), getLotes(id)]);
+      const [prod, lotesRes, stockDep] = await Promise.all([
+        getProducto(id),
+        getLotes(id),
+        getStockPorDeposito(id).catch(() => []),
+      ]);
       setProducto(prod);
       setLotes(lotesRes);
+      setStockDeposito(stockDep);
     } catch {
       setError('Error al cargar los datos del producto');
     } finally {
@@ -193,6 +202,38 @@ export default function InventarioDetalle() {
             {producto.stockActual.toLocaleString('es-AR')}
           </p>
           <p className="mt-2 text-sm text-gray-500">unidades disponibles</p>
+          <div className="mt-3 flex items-center gap-1.5 border-t border-gray-100 pt-3 text-sm">
+            <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+            <span className="text-gray-500">Stock crítico:</span>
+            <span className="font-semibold text-gray-900">
+              {producto.stockCritico.toLocaleString('es-AR')} ud
+            </span>
+          </div>
+
+          {/* Desglose por depósito */}
+          <div className="mt-3 border-t border-gray-100 pt-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">Por depósito</span>
+              <button
+                onClick={() => setTransferModal(true)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+              >
+                <ArrowLeftRight className="h-3 w-3" /> Transferir
+              </button>
+            </div>
+            {stockDeposito.length === 0 ? (
+              <p className="text-xs text-gray-400">Sin stock distribuido</p>
+            ) : (
+              <div className="space-y-1">
+                {stockDeposito.map((s) => (
+                  <div key={s.depositoId} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">{s.depositoNombre}</span>
+                    <span className="font-semibold text-gray-900">{s.stock.toLocaleString('es-AR')} ud</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Card 3: Detalles */}
@@ -302,6 +343,13 @@ export default function InventarioDetalle() {
         producto={producto}
         lote={selectedLote}
         onConfirm={handleAjusteLote}
+      />
+      <TransferenciaModal
+        isOpen={transferModal}
+        onClose={() => setTransferModal(false)}
+        producto={producto}
+        stockPorDeposito={stockDeposito}
+        onTransferido={fetchData}
       />
     </div>
   );

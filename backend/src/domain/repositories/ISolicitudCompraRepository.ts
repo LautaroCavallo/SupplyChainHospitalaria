@@ -63,4 +63,6 @@ export interface ISolicitudCompraRepository {
   update(id: string, data: UpdateSolicitudCompraData): Promise<SolicitudCompra>;
   updateBorrador(id: string, data: UpdateBorradorData): Promise<SolicitudCompra>;
   delete(id: string): Promise<void>;
+  /** True si existe una solicitud "abierta" (no rechazada) que incluya el producto. */
+  existeSolicitudActivaParaProducto(productoId: string): Promise<boolean>;
 }

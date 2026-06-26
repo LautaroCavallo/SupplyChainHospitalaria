@@ -23,6 +23,23 @@ export type TipoMovimiento =
 export type EstadoSolicitud = 'BORRADOR' | 'PENDIENTE' | 'APROBADA' | 'EN_RECEPCION' | 'RECHAZADA' | 'ENVIADA';
 export type PrioridadSolicitud = 'BAJA' | 'NORMAL' | 'ALTA' | 'URGENTE';
 
+export type TipoDeposito = 'CENTRAL' | 'PISO';
+
+export interface Deposito {
+  id: string;
+  nombre: string;
+  tipo: TipoDeposito;
+  descripcion?: string;
+  activo: boolean;
+}
+
+export interface StockPorDeposito {
+  depositoId: string;
+  depositoNombre: string;
+  depositoTipo: TipoDeposito;
+  stock: number;
+}
+
 // ─── Inventario ───────────────────────────────────────────────────────────────
 
 export interface ProductoInventario {
@@ -229,6 +246,8 @@ export interface MedicamentoListItem {
   estado: 'ACTIVO' | 'INACTIVO';
   precio?: number;
   observaciones?: string;
+  stockCritico?: number;
+  stockMinimo?: number;
 }
 
 export interface MedicamentosSummary {

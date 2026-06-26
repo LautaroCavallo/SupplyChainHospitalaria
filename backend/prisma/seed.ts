@@ -297,10 +297,19 @@ async function main() {
   const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
   const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 
+  const depositoCentral = await prisma.deposito.create({
+    data: {
+      nombre: 'Farmacia Central',
+      tipo: 'CENTRAL',
+      descripcion: 'Depósito central de la farmacia',
+    },
+  });
+
   await Promise.all([
     prisma.lote.create({
       data: {
         productoId: productos[0].id,
+        depositoId: depositoCentral.id,
         numeroLote: '2405A',
         fechaVencimiento: new Date('2026-12-31'),
         stockDisponible: 800,
@@ -312,6 +321,7 @@ async function main() {
       data: {
         productoId: productos[0].id,
         numeroLote: '2311B',
+        depositoId: depositoCentral.id,
         fechaVencimiento: new Date('2024-08-15'),
         stockDisponible: 620,
         stockInicial: 800,
@@ -322,6 +332,7 @@ async function main() {
       data: {
         productoId: productos[0].id,
         numeroLote: '2209C',
+        depositoId: depositoCentral.id,
         fechaVencimiento: new Date('2023-12-31'),
         stockDisponible: 0,
         stockInicial: 500,
@@ -332,6 +343,7 @@ async function main() {
       data: {
         productoId: productos[1].id,
         numeroLote: 'INS-2024-001',
+        depositoId: depositoCentral.id,
         fechaVencimiento: threeMonthsFromNow,
         stockDisponible: 24,
         stockInicial: 50,
@@ -342,6 +354,7 @@ async function main() {
       data: {
         productoId: productos[3].id,
         numeroLote: 'IBU-2025-A',
+        depositoId: depositoCentral.id,
         fechaVencimiento: oneYearFromNow,
         stockDisponible: 4500,
         stockInicial: 5000,
@@ -352,6 +365,7 @@ async function main() {
       data: {
         productoId: productos[4].id,
         numeroLote: 'DEX-2025-01',
+        depositoId: depositoCentral.id,
         fechaVencimiento: oneYearFromNow,
         stockDisponible: 620,
         stockInicial: 700,

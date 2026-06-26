@@ -3,6 +3,7 @@ import { Lote } from '../entities/Lote';
 export interface CreateLoteData {
   numeroLote: string;
   productoId: string;
+  depositoId: string;
   fechaVencimiento: Date;
   stockDisponible: number;
   stockInicial: number;

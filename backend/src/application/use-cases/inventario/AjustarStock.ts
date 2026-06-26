@@ -1,6 +1,7 @@
 import { IInventarioRepository } from '../../../domain/repositories/IInventarioRepository';
 import { IMovimientoStockRepository } from '../../../domain/repositories/IMovimientoStockRepository';
 import { ILoteRepository } from '../../../domain/repositories/ILoteRepository';
+import { GenerarSolicitudAutomatica } from '../solicitudes/GenerarSolicitudAutomatica';
 import { AjusteStockDTO } from '../../dtos';
 import { NotFoundError, ValidationError } from '../../errors/AppError';
 
@@ -9,6 +10,7 @@ export class AjustarStock {
     private readonly inventarioRepository: IInventarioRepository,
     private readonly movimientoRepository: IMovimientoStockRepository,
     private readonly loteRepository: ILoteRepository,
+    private readonly generarSolicitudAutomatica: GenerarSolicitudAutomatica,
   ) {}
 
   async execute(productoId: string, dto: AjusteStockDTO, usuarioId?: string): Promise<void> {
@@ -61,5 +63,10 @@ export class AjustarStock {
       motivo: dto.motivo,
       usuarioId,
     });
+
+    // Si el decremento dejó al producto en nivel crítico/sin stock, generar orden automática
+    if (dto.tipo === 'DECREMENTO') {
+      await this.generarSolicitudAutomatica.execute(productoId);
+    }
   }
 }

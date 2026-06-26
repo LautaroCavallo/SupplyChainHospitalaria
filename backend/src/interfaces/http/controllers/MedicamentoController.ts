@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { IInventarioRepository, CreateProductoData, UpdateProductoData } from '../../../domain/repositories/IInventarioRepository';
-import { ProductoInventario } from '../../../domain/entities/ProductoInventario';
+import { ProductoInventario, FACTOR_STOCK_MINIMO } from '../../../domain/entities/ProductoInventario';
 
 type EstadoMedicamento = 'ACTIVO' | 'INACTIVO' | 'SUSPENDIDO';
 
@@ -13,6 +13,7 @@ interface MedicamentoPayload {
   estado?: EstadoMedicamento;
   precio?: number;
   observaciones?: string;
+  stockCritico?: number;
 }
 
 export class MedicamentoController {
@@ -78,14 +79,16 @@ export class MedicamentoController {
   create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const payload = req.body as MedicamentoPayload;
+      const stockCritico = payload.stockCritico ?? 5;
       const data: CreateProductoData = {
         nombre: payload.nombre,
         descripcion: this.buildDescripcion(payload),
         presentacion: payload.presentacion,
         categoria: 'MEDICAMENTO',
         ean: payload.ean,
-        stockMinimo: 10,
-        stockCritico: 5,
+        stockCritico,
+        // El mínimo se deriva del crítico; se persiste por consistencia de la columna en BD.
+        stockMinimo: stockCritico * FACTOR_STOCK_MINIMO,
         unidad: 'unidad',
       };
 
@@ -113,6 +116,10 @@ export class MedicamentoController {
         ean: payload.ean,
         categoria: 'MEDICAMENTO',
         activo: payload.estado ? payload.estado === 'ACTIVO' : undefined,
+        ...(payload.stockCritico !== undefined && {
+          stockCritico: payload.stockCritico,
+          stockMinimo: payload.stockCritico * FACTOR_STOCK_MINIMO,
+        }),
       };
 
       const updated = await this.inventarioRepository.update(req.params.id as string, data);
@@ -141,6 +148,8 @@ export class MedicamentoController {
       laboratorio: producto.proveedor?.razonSocial,
       estado: producto.activo ? 'ACTIVO' : 'INACTIVO',
       observaciones: this.stripCategoria(producto.descripcion),
+      stockCritico: producto.stockCritico,
+      stockMinimo: producto.stockMinimo,
     };
   }
 

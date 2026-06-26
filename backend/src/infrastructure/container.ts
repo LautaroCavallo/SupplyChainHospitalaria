@@ -5,6 +5,7 @@ import { PrismaMovimientoStockRepository } from './database/repositories/PrismaM
 import { PrismaRecepcionRepository } from './database/repositories/PrismaRecepcionRepository';
 import { PrismaSolicitudCompraRepository } from './database/repositories/PrismaSolicitudCompraRepository';
 import { PrismaNotificacionRepository } from './database/repositories/PrismaNotificacionRepository';
+import { PrismaDepositoRepository } from './database/repositories/PrismaDepositoRepository';
 import { VademecumFixtureService } from './external/fixtures/VademecumFixtureService';
 import { RecetaFixtureService } from './external/fixtures/RecetaFixtureService';
 import { ComprasFixtureService } from './external/fixtures/ComprasFixtureService';
@@ -38,6 +39,11 @@ import { ConfirmarRecepcion } from '../application/use-cases/recepciones/Confirm
 import { ProcesarRecepcion } from '../application/use-cases/recepciones/ProcesarRecepcion';
 import { ListarSolicitudesCompra } from '../application/use-cases/solicitudes/ListarSolicitudesCompra';
 import { CrearSolicitudCompra } from '../application/use-cases/solicitudes/CrearSolicitudCompra';
+import { GenerarSolicitudAutomatica } from '../application/use-cases/solicitudes/GenerarSolicitudAutomatica';
+import { ListarDepositos } from '../application/use-cases/depositos/ListarDepositos';
+import { CrearDeposito } from '../application/use-cases/depositos/CrearDeposito';
+import { TransferirStock } from '../application/use-cases/depositos/TransferirStock';
+import { ObtenerStockPorDeposito } from '../application/use-cases/depositos/ObtenerStockPorDeposito';
 import { ActualizarSolicitudCompra } from '../application/use-cases/solicitudes/ActualizarSolicitudCompra';
 import { EliminarSolicitudCompra } from '../application/use-cases/solicitudes/EliminarSolicitudCompra';
 import { ConfirmarBorrador } from '../application/use-cases/solicitudes/ConfirmarBorrador';
@@ -57,6 +63,7 @@ export function createContainer() {
   const recepcionRepo = new PrismaRecepcionRepository();
   const solicitudCompraRepo = new PrismaSolicitudCompraRepository();
   const notificacionRepo = new PrismaNotificacionRepository();
+  const depositoRepo = new PrismaDepositoRepository();
 
   const vademecumService = new VademecumFixtureService();
   const coreAuthService = new CoreAuthService();
@@ -82,7 +89,8 @@ export function createContainer() {
   const obtenerProductoInventario = new ObtenerProductoInventario(inventarioRepo);
   const obtenerProductoPorEan = new ObtenerProductoPorEan(inventarioRepo);
   const obtenerInventarioSummary = new ObtenerInventarioSummary(inventarioRepo);
-  const ajustarStock = new AjustarStock(inventarioRepo, movimientoRepo, loteRepo);
+  const generarSolicitudAutomatica = new GenerarSolicitudAutomatica(inventarioRepo, solicitudCompraRepo, notificacionRepo);
+  const ajustarStock = new AjustarStock(inventarioRepo, movimientoRepo, loteRepo, generarSolicitudAutomatica);
   const obtenerMovimientos = new ObtenerMovimientos(movimientoRepo);
   const obtenerLotes = new ObtenerLotes(loteRepo);
   const obtenerHistorialLote = new ObtenerHistorialLote(movimientoRepo);
@@ -106,9 +114,14 @@ export function createContainer() {
   const confirmarAdjudicacion = new ConfirmarAdjudicacion(solicitudCompraRepo);
 
   const validarReceta = new ValidarReceta(recetaService, movimientoRepo, inventarioRepo);
-  const consumirReceta = new ConsumirReceta(recetaService, inventarioRepo, movimientoRepo, notificacionRepo);
+  const consumirReceta = new ConsumirReceta(recetaService, inventarioRepo, movimientoRepo, notificacionRepo, generarSolicitudAutomatica);
   const obtenerDashboard = new ObtenerDashboard(inventarioRepo, movimientoRepo);
   const obtenerActividadReciente = new ObtenerActividadReciente(movimientoRepo);
+
+  const listarDepositos = new ListarDepositos(depositoRepo);
+  const crearDeposito = new CrearDeposito(depositoRepo);
+  const transferirStock = new TransferirStock(depositoRepo);
+  const obtenerStockPorDeposito = new ObtenerStockPorDeposito(depositoRepo);
 
   return {
     buscarMedicamentos,
@@ -146,6 +159,10 @@ export function createContainer() {
     consumirReceta,
     obtenerDashboard,
     obtenerActividadReciente,
+    listarDepositos,
+    crearDeposito,
+    transferirStock,
+    obtenerStockPorDeposito,
     coreAuthService,
     inventarioRepository: inventarioRepo,
     loteRepository: loteRepo,

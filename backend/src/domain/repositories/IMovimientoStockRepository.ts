@@ -12,6 +12,8 @@ export interface FiltrosMovimiento {
 export interface CreateMovimientoData {
   productoId: string;
   loteId?: string;
+  depositoId?: string;
+  depositoDestinoId?: string;
   tipo: TipoMovimiento;
   cantidad: number;
   motivo: string;
@@ -22,6 +24,7 @@ export interface CreateMovimientoData {
 export interface ConsumoRecetaData {
   recetaId: string;
   usuarioId?: string;
+  depositoId?: string;
   items: Array<{
     productoId: string;
     loteId?: string;

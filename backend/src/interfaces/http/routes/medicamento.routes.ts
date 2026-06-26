@@ -29,6 +29,7 @@ export function medicamentoRoutes(container: Container): Router {
     body('estado').optional().isIn(['ACTIVO', 'INACTIVO', 'SUSPENDIDO']),
     body('precio').optional().isFloat({ min: 0 }).toFloat(),
     body('observaciones').optional().isString().trim(),
+    body('stockCritico').optional().isInt({ min: 0 }).toInt(),
     validateRequest,
     controller.create,
   );
@@ -43,6 +44,7 @@ export function medicamentoRoutes(container: Container): Router {
     body('estado').optional().isIn(['ACTIVO', 'INACTIVO', 'SUSPENDIDO']),
     body('precio').optional().isFloat({ min: 0 }).toFloat(),
     body('observaciones').optional().isString().trim(),
+    body('stockCritico').optional().isInt({ min: 0 }).toInt(),
     validateRequest,
     controller.update,
   );

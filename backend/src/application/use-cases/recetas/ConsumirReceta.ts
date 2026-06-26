@@ -2,6 +2,7 @@ import { IRecetaService } from '../../../domain/services/IRecetaService';
 import { IInventarioRepository } from '../../../domain/repositories/IInventarioRepository';
 import { IMovimientoStockRepository } from '../../../domain/repositories/IMovimientoStockRepository';
 import { INotificacionRepository } from '../../../domain/repositories/INotificacionRepository';
+import { GenerarSolicitudAutomatica } from '../solicitudes/GenerarSolicitudAutomatica';
 import { ValidationError } from '../../errors/AppError';
 
 interface ItemReceta {
@@ -23,9 +24,10 @@ export class ConsumirReceta {
     private readonly inventarioRepository: IInventarioRepository,
     private readonly movimientoRepository: IMovimientoStockRepository,
     private readonly notificacionRepository: INotificacionRepository,
+    private readonly generarSolicitudAutomatica: GenerarSolicitudAutomatica,
   ) {}
 
-  async execute(recetaId: string, items: ItemReceta[], usuarioId?: string): Promise<ConsumirRecetaResult> {
+  async execute(recetaId: string, items: ItemReceta[], usuarioId?: string, depositoId?: string): Promise<ConsumirRecetaResult> {
     const validacion = await this.recetaService.validarReceta(recetaId);
     if (!validacion.valida) {
       throw new ValidationError(`La receta ${recetaId} no es válida`);
@@ -98,6 +100,7 @@ export class ConsumirReceta {
     const registro = await this.movimientoRepository.registrarConsumoReceta({
       recetaId,
       usuarioId,
+      depositoId,
       items: consumoItems,
     });
 
@@ -121,6 +124,12 @@ export class ConsumirReceta {
       });
     } catch {
       // No interrumpir el flujo si falla la notificación
+    }
+
+    // Generar órdenes automáticas para productos que quedaron en stock crítico/sin stock
+    const productosConsumidos = [...new Set(consumoItems.map((i) => i.productoId))];
+    for (const productoId of productosConsumidos) {
+      await this.generarSolicitudAutomatica.execute(productoId);
     }
 
     return {
