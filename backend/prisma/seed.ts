@@ -297,13 +297,14 @@ async function main() {
   const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
   const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 
-  const depositoCentral = await prisma.deposito.create({
-    data: {
-      nombre: 'Farmacia Central',
-      tipo: 'CENTRAL',
-      descripcion: 'Depósito central de la farmacia',
-    },
-  });
+  const depositoCentral = await prisma.deposito.findFirst({ where: { tipo: 'CENTRAL' } })
+    ?? await prisma.deposito.create({
+      data: {
+        nombre: 'Farmacia Central',
+        tipo: 'CENTRAL',
+        descripcion: 'Depósito central de la farmacia',
+      },
+    });
 
   await Promise.all([
     prisma.lote.create({
@@ -369,6 +370,61 @@ async function main() {
         fechaVencimiento: oneYearFromNow,
         stockDisponible: 620,
         stockInicial: 700,
+        estado: 'VIGENTE',
+      },
+    }),
+    prisma.lote.create({
+      data: {
+        productoId: productos[5].id,
+        numeroLote: 'OME-2026-INIT',
+        depositoId: depositoCentral.id,
+        fechaVencimiento: oneYearFromNow,
+        stockDisponible: 890,
+        stockInicial: 890,
+        estado: 'VIGENTE',
+      },
+    }),
+    prisma.lote.create({
+      data: {
+        productoId: productos[6].id,
+        numeroLote: 'PAR-2026-INIT',
+        depositoId: depositoCentral.id,
+        fechaVencimiento: oneYearFromNow,
+        stockDisponible: 3200,
+        stockInicial: 3200,
+        estado: 'VIGENTE',
+      },
+    }),
+    prisma.lote.create({
+      data: {
+        productoId: productos[7].id,
+        numeroLote: 'GUA-2026-INIT',
+        depositoId: depositoCentral.id,
+        fechaVencimiento: oneYearFromNow,
+        stockDisponible: 45,
+        stockInicial: 45,
+        estado: 'VIGENTE',
+      },
+    }),
+    prisma.lote.create({
+      data: {
+        productoId: productos[8].id,
+        numeroLote: 'JER-2026-INIT',
+        depositoId: depositoCentral.id,
+        fechaVencimiento: oneYearFromNow,
+        stockDisponible: 8,
+        stockInicial: 8,
+        estado: 'VIGENTE',
+      },
+    }),
+    prisma.lote.create({
+      data: {
+        productoId: productos[9].id,
+        numeroLote: 'DIC-2026-INIT',
+        depositoId: depositoCentral.id,
+        fechaVencimiento: oneYearFromNow,
+        stockDisponible: 150,
+        stockInicial: 150,
         estado: 'VIGENTE',
       },
     }),

@@ -49,7 +49,7 @@ const estadoFilterOptions: { label: string; value: string }[] = [
 ];
 
 const LIMIT = 10;
-type SortKey = 'numeroLote' | 'fechaVencimiento' | 'stockDisponible' | 'estado';
+type SortKey = 'numeroLote' | 'depositoNombre' | 'fechaVencimiento' | 'stockDisponible' | 'estado';
 
 const estadoLoteSortOrder: Record<EstadoLote, number> = {
   VIGENTE: 0,
@@ -109,6 +109,7 @@ export default function InventarioDetalle() {
       let result = 0;
 
       if (sort.key === 'numeroLote') result = compareText(a.numeroLote, b.numeroLote);
+      if (sort.key === 'depositoNombre') result = compareText(a.depositoNombre ?? '', b.depositoNombre ?? '');
       if (sort.key === 'fechaVencimiento') result = compareDate(a.fechaVencimiento, b.fechaVencimiento);
       if (sort.key === 'stockDisponible') result = compareNumber(a.stockDisponible, b.stockDisponible);
       if (sort.key === 'estado') result = estadoLoteSortOrder[a.estado] - estadoLoteSortOrder[b.estado];
@@ -224,7 +225,7 @@ export default function InventarioDetalle() {
             {stockDeposito.length === 0 ? (
               <p className="text-xs text-gray-400">Sin stock distribuido</p>
             ) : (
-              <div className="space-y-1">
+              <div className="h-[4.5rem] space-y-1 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
                 {stockDeposito.map((s) => (
                   <div key={s.depositoId} className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">{s.depositoNombre}</span>
@@ -281,6 +282,7 @@ export default function InventarioDetalle() {
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50/50">
               <SortableTh label="Número de Lote" sortKey="numeroLote" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
+              <SortableTh label="Depósito" sortKey="depositoNombre" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
               <SortableTh label="Fecha de Vencimiento" sortKey="fechaVencimiento" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
               <SortableTh label="Stock Disponible" sortKey="stockDisponible" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
               <SortableTh label="Estado" sortKey="estado" activeKey={sort.key} direction={sort.direction} onSort={handleSort} />
@@ -293,6 +295,7 @@ export default function InventarioDetalle() {
               return (
                 <tr key={lote.id} className="transition-colors hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-semibold text-gray-900">{lote.numeroLote}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{lote.depositoNombre || '—'}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{formatDate(lote.fechaVencimiento)}</td>
                   <td className="px-6 py-4 text-sm font-bold text-gray-900">
                     {lote.stockDisponible.toLocaleString('es-AR')} ud
@@ -323,7 +326,7 @@ export default function InventarioDetalle() {
             })}
             {pagedLotes.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-400">
+                <td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-400">
                   No hay lotes registrados
                 </td>
               </tr>

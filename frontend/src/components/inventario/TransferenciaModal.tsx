@@ -90,7 +90,7 @@ export default function TransferenciaModal({ isOpen, onClose, producto, stockPor
         </div>
 
         <div className="px-8 pb-6 space-y-4">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-3">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-gray-500">Origen</label>
               <select value={origenId} onChange={(e) => setOrigenId(e.target.value)} className={selectCls}>
@@ -98,7 +98,7 @@ export default function TransferenciaModal({ isOpen, onClose, producto, stockPor
               </select>
               <p className="mt-1 text-[11px] text-gray-400">Disponible: {stockOrigen} ud</p>
             </div>
-            <ArrowRight className="mb-7 h-5 w-5 text-gray-400" />
+            <ArrowRight className="mt-[30px] h-5 w-5 text-gray-400" />
             <div>
               <label className="mb-1.5 block text-xs font-medium text-gray-500">Destino</label>
               <select value={destinoId} onChange={(e) => setDestinoId(e.target.value)} className={selectCls}>

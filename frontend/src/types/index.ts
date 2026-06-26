@@ -83,6 +83,8 @@ export interface Lote {
   id: string;
   numeroLote: string;
   productoId: string;
+  depositoId: string;
+  depositoNombre: string;
   fechaVencimiento: string;
   stockDisponible: number;
   stockInicial: number;

@@ -117,6 +117,7 @@ export class PrismaDepositoRepository implements IDepositoRepository {
           },
         });
 
+        let loteDestinoId: string;
         if (loteDestino) {
           await tx.lote.update({
             where: { id: loteDestino.id },
@@ -127,8 +128,9 @@ export class PrismaDepositoRepository implements IDepositoRepository {
               estado: 'VIGENTE',
             },
           });
+          loteDestinoId = loteDestino.id;
         } else {
-          await tx.lote.create({
+          const nuevoLote = await tx.lote.create({
             data: {
               productoId,
               numeroLote: lote.numeroLote,
@@ -139,18 +141,29 @@ export class PrismaDepositoRepository implements IDepositoRepository {
               estado: 'VIGENTE',
             },
           });
+          loteDestinoId = nuevoLote.id;
         }
 
-        // Movimiento de transferencia (no altera el stock global del producto)
         await tx.movimientoStock.create({
           data: {
             productoId,
             loteId: lote.id,
             depositoId: depositoOrigenId,
-            depositoDestinoId,
-            tipo: 'TRANSFERENCIA',
+            tipo: 'EGRESO',
             cantidad: mover,
-            motivo: `Transferencia ${origen.nombre} → ${destino.nombre} - Lote ${lote.numeroLote}`,
+            motivo: `Transferencia a ${destino.nombre} - Lote ${lote.numeroLote}`,
+            usuarioId: usuarioId ?? null,
+          },
+        });
+
+        await tx.movimientoStock.create({
+          data: {
+            productoId,
+            loteId: loteDestinoId,
+            depositoId: depositoDestinoId,
+            tipo: 'INGRESO',
+            cantidad: mover,
+            motivo: `Transferencia desde ${origen.nombre} - Lote ${lote.numeroLote}`,
             usuarioId: usuarioId ?? null,
           },
         });

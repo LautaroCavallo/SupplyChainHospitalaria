@@ -3,8 +3,7 @@ export type TipoMovimiento =
   | 'EGRESO'
   | 'AJUSTE_POSITIVO'
   | 'AJUSTE_NEGATIVO'
-  | 'CONSUMO_RECETA'
-  | 'TRANSFERENCIA';
+  | 'CONSUMO_RECETA';
 
 export class MovimientoStock {
   readonly id: string;

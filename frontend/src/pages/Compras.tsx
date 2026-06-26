@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, Filter, Download, Loader2, Send, Check, Pencil, X, PackagePlus } from 'lucide-react';
+import { Plus, Eye, Loader2, Send, Check, Pencil, X, PackagePlus } from 'lucide-react';
 import { getCompras, getAlertasCompras, enviarOrdenCompra, confirmarBorrador, eliminarCompra } from '../api/compras';
 import { crearRecepcionDesdeOrdenCompra } from '../api/recepciones';
 import ConfirmModal from '../components/common/ConfirmModal';
@@ -198,14 +198,6 @@ export default function Compras() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <FilterTabs tabs={tabs} active={estadoFilter} onChange={setEstadoFilter} size="sm" />
-            <button className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
-              <Filter className="h-3.5 w-3.5" />
-              Filtrar
-            </button>
-            <button className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
-              <Download className="h-3.5 w-3.5" />
-              Exportar
-            </button>
           </div>
         </div>
 
