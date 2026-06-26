@@ -19,14 +19,24 @@ export async function validarReceta(recetaId: string): Promise<RecetaDetalle> {
       medicamento: item.medicamento ?? item.nombre,
       descripcion: item.indicaciones ?? 'Medicamento genérico prescripto',
       cantAutorizada: item.cantidad,
-      cantConsumida: 0,
+      cantConsumida: item.cantConsumida ?? 0,
     })),
   };
 }
 
+export interface ConsumoResult {
+  itemsConsumidos: Array<{ productoNombre: string; cantidad: number }>;
+  totalMedicamentos: number;
+}
+
 export async function registrarConsumo(
   recetaId: string,
-  items: { medicamento: string; cantConsumo: number }[]
-): Promise<void> {
-  await api.post(`/recetas/${recetaId}/consumir`, { items });
+  items: { medicamento: string; cantConsumo: number }[],
+): Promise<ConsumoResult> {
+  const res = await api.post(`/recetas/${recetaId}/consumir`, { items });
+  const data = res.data.data ?? {};
+  return {
+    itemsConsumidos: data.itemsConsumidos ?? [],
+    totalMedicamentos: data.totalMedicamentos ?? 0,
+  };
 }

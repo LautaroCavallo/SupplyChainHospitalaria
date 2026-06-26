@@ -17,6 +17,7 @@ export interface RecetaItem {
   medicamento?: string;
   cantidad: number;
   indicaciones?: string;
+  cantConsumida?: number;
 }
 
 export interface ItemConsumo {

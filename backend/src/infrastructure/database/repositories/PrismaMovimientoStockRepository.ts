@@ -6,6 +6,7 @@ import {
   ConsumoRecetaData,
   ConsumoRecetaResult,
 } from '../../../domain/repositories/IMovimientoStockRepository';
+import type { ItemConsumidoResult } from '../../../domain/repositories/IMovimientoStockRepository';
 import { MovimientoStock, TipoMovimiento } from '../../../domain/entities/MovimientoStock';
 
 export class PrismaMovimientoStockRepository implements IMovimientoStockRepository {
@@ -76,13 +77,17 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
 
   async existsByTipoAndReferencia(tipo: TipoMovimiento, referencia: string): Promise<boolean> {
     const count = await prisma.movimientoStock.count({
-      where: {
-        tipo,
-        referencia,
-      },
+      where: { tipo, referencia },
     });
-
     return count > 0;
+  }
+
+  async findByTipoAndReferencia(tipo: TipoMovimiento, referencia: string): Promise<MovimientoStock[]> {
+    const data = await prisma.movimientoStock.findMany({
+      where: { tipo, referencia },
+      include: { lote: true, producto: true },
+    });
+    return data.map(this.toEntity);
   }
 
   async create(data: CreateMovimientoData): Promise<MovimientoStock> {
@@ -111,7 +116,7 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
       });
 
       if (existing > 0) {
-        return { duplicada: true, errores: [] };
+        return { duplicada: true, errores: [], itemsConsumidos: [] };
       }
 
       const errores: string[] = [];
@@ -161,10 +166,16 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
       }
 
       if (errores.length > 0) {
-        return { duplicada: false, errores };
+        return { duplicada: false, errores, itemsConsumidos: [] };
       }
 
+      const itemsConsumidos: ItemConsumidoResult[] = [];
+
       for (const item of data.items) {
+        const producto = await tx.productoInventario.findUnique({
+          where: { id: item.productoId },
+        });
+
         const lotesDisponibles = await tx.lote.findMany({
           where: {
             productoId: item.productoId,
@@ -206,9 +217,15 @@ export class PrismaMovimientoStockRepository implements IMovimientoStockReposito
           where: { id: item.productoId },
           data: { stockActual: { decrement: item.cantidad } },
         });
+
+        itemsConsumidos.push({
+          productoId: item.productoId,
+          productoNombre: producto?.nombre ?? item.productoId,
+          cantidad: item.cantidad,
+        });
       }
 
-      return { duplicada: false, errores: [] };
+      return { duplicada: false, errores: [], itemsConsumidos };
     });
   }
 

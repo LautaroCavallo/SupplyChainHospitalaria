@@ -4,6 +4,7 @@ import { PrismaLoteRepository } from './database/repositories/PrismaLoteReposito
 import { PrismaMovimientoStockRepository } from './database/repositories/PrismaMovimientoStockRepository';
 import { PrismaRecepcionRepository } from './database/repositories/PrismaRecepcionRepository';
 import { PrismaSolicitudCompraRepository } from './database/repositories/PrismaSolicitudCompraRepository';
+import { PrismaNotificacionRepository } from './database/repositories/PrismaNotificacionRepository';
 import { VademecumFixtureService } from './external/fixtures/VademecumFixtureService';
 import { RecetaFixtureService } from './external/fixtures/RecetaFixtureService';
 import { ComprasFixtureService } from './external/fixtures/ComprasFixtureService';
@@ -55,6 +56,7 @@ export function createContainer() {
   const movimientoRepo = new PrismaMovimientoStockRepository();
   const recepcionRepo = new PrismaRecepcionRepository();
   const solicitudCompraRepo = new PrismaSolicitudCompraRepository();
+  const notificacionRepo = new PrismaNotificacionRepository();
 
   const vademecumService = new VademecumFixtureService();
   const coreAuthService = new CoreAuthService();
@@ -89,7 +91,7 @@ export function createContainer() {
 
   const listarRecepciones = new ListarRecepciones(recepcionRepo);
   const obtenerRecepcion = new ObtenerRecepcion(recepcionRepo);
-  const crearRecepcion = new CrearRecepcion(recepcionRepo, proveedorRepo);
+  const crearRecepcion = new CrearRecepcion(recepcionRepo, proveedorRepo, notificacionRepo);
   const crearRecepcionDesdeOrdenCompra = new CrearRecepcionDesdeOrdenCompra(recepcionRepo, solicitudCompraRepo, proveedorRepo);
   const actualizarRecepcion = new ActualizarRecepcion(recepcionRepo, proveedorRepo);
   const confirmarRecepcion = new ConfirmarRecepcion(recepcionRepo);
@@ -103,8 +105,8 @@ export function createContainer() {
   const enviarOrdenCompra = new EnviarOrdenCompra(solicitudCompraRepo, comprasService);
   const confirmarAdjudicacion = new ConfirmarAdjudicacion(solicitudCompraRepo);
 
-  const validarReceta = new ValidarReceta(recetaService, movimientoRepo);
-  const consumirReceta = new ConsumirReceta(recetaService, inventarioRepo, movimientoRepo);
+  const validarReceta = new ValidarReceta(recetaService, movimientoRepo, inventarioRepo);
+  const consumirReceta = new ConsumirReceta(recetaService, inventarioRepo, movimientoRepo, notificacionRepo);
   const obtenerDashboard = new ObtenerDashboard(inventarioRepo, movimientoRepo);
   const obtenerActividadReciente = new ObtenerActividadReciente(movimientoRepo);
 
@@ -146,6 +148,8 @@ export function createContainer() {
     obtenerActividadReciente,
     coreAuthService,
     inventarioRepository: inventarioRepo,
+    loteRepository: loteRepo,
+    notificacionRepository: notificacionRepo,
     setCurrentAuthToken: (token?: string) => {
       currentAuthToken = token;
     },
