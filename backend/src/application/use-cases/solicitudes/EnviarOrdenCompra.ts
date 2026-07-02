@@ -1,13 +1,27 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ISolicitudCompraRepository } from '../../../domain/repositories/ISolicitudCompraRepository';
-import { IComprasService } from '../../../domain/services/IComprasService';
+import { IEventPublisher } from '../../../domain/services/IEventPublisher';
+import { OrdenCompraPayload } from '../../../domain/services/IComprasService';
 import { SolicitudCompraResponseDTO } from '../../dtos';
 import { NotFoundError, ValidationError } from '../../errors/AppError';
+import { config } from '../../../config';
 
+/**
+ * Envío a Compras — ahora ASÍNCRONO (orientado a eventos).
+ *
+ * En vez de llamar sincrónicamente al módulo de Compras (que bloqueaba el request
+ * y perdía el pedido si el proceso moría), este caso de uso:
+ *   1. marca la solicitud como ENVIADA,
+ *   2. publica un evento en Kafka (topic durable).
+ *
+ * El WORKER (src/worker.ts) consume ese evento y hace el envío real al módulo de
+ * Compras. Si se cae la API o el worker, el evento sobrevive en Kafka y se procesa
+ * al reiniciar el worker.
+ */
 export class EnviarOrdenCompra {
   constructor(
     private readonly solicitudRepository: ISolicitudCompraRepository,
-    private readonly comprasService: IComprasService,
+    private readonly eventPublisher: IEventPublisher,
   ) {}
 
   async execute(solicitudId: string, backendBaseUrl: string): Promise<SolicitudCompraResponseDTO> {
@@ -39,7 +53,7 @@ export class EnviarOrdenCompra {
       unidad: d.unidad ?? 'unidad',
     }));
 
-    const payload = {
+    const payload: OrdenCompraPayload = {
       ordenCompraId,
       solicitudCompraId: solicitudId,
       prioridad: solicitud.prioridad,
@@ -50,46 +64,21 @@ export class EnviarOrdenCompra {
       callbackUrl,
     };
 
-    const resultado = await this.comprasService.enviarOrdenCompra(payload);
-
-    if (!resultado.exitoso) {
-      throw new ValidationError(`Error al enviar a Compras: ${resultado.errores.join(', ')}`);
-    }
-
-    // Actualizar solicitud a ENVIADA
+    // 1) Marcar ENVIADA antes de publicar: así el worker siempre encuentra la
+    //    solicitud en el estado esperado (sin carreras).
     await this.solicitudRepository.update(solicitudId, {
       estado: 'ENVIADA',
       ordenCompraId,
-      ordenCompraExternaId: resultado.ordenCompraExternaId,
     });
 
-    // Si el mock devuelve autoCallback, procesar adjudicación inline
-    if (resultado.autoCallback) {
-      const cb = resultado.autoCallback;
-
-      if (cb.aprobado) {
-        const detallesUpdate = cb.itemsAdjudicados?.map((item) => ({
-          productoId: item.productoId,
-          cantidadAprobada: item.cantidadAprobada,
-          precioUnitario: item.precioUnitario,
-        }));
-
-        await this.solicitudRepository.update(solicitudId, {
-          estado: 'APROBADA',
-          referenciaExterna: cb.referenciaExterna,
-          proveedorAdjudicadoRazonSocial: cb.proveedorAdjudicado?.razonSocial,
-          fechaAprobacion: cb.fechaAprobacion ? new Date(cb.fechaAprobacion) : new Date(),
-          fechaEntregaEstimada: cb.fechaEntregaEstimada ? new Date(cb.fechaEntregaEstimada) : undefined,
-          observaciones: cb.observaciones,
-          detalles: detallesUpdate,
-        });
-      } else {
-        await this.solicitudRepository.update(solicitudId, {
-          estado: 'RECHAZADA',
-          referenciaExterna: cb.referenciaExterna,
-          observaciones: cb.observaciones,
-        });
-      }
+    // 2) Publicar el evento en el topic durable. Si Kafka falla, revertimos a
+    //    PENDIENTE para que el usuario pueda reintentar (consistencia simple).
+    try {
+      const key = proveedorSugerido?.id ?? solicitudId;
+      await this.eventPublisher.publish(config.kafka.topics.ordenSolicitada, key, payload);
+    } catch (err) {
+      await this.solicitudRepository.update(solicitudId, { estado: 'PENDIENTE' });
+      throw new ValidationError(`No se pudo encolar el envío a Compras: ${(err as Error).message}`);
     }
 
     const solicitudActualizada = await this.solicitudRepository.findById(solicitudId);
