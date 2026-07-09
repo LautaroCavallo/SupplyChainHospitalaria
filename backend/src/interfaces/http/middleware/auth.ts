@@ -19,7 +19,7 @@ declare global {
 
 export function createAuthMiddleware(coreAuthService: CoreAuthService) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    if (req.path.startsWith('/api/v1/auth/login') || req.path.startsWith('/api/docs') || req.path === '/health') {
+    if (req.path.startsWith('/api/v1/auth/login') || req.path.startsWith('/api/v1/auth/sso') || req.path.startsWith('/api/docs') || req.path === '/health') {
       next();
       return;
     }

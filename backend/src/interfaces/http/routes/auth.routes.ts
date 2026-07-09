@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { body } from 'express-validator';
+import { body, query } from 'express-validator';
 import { Container } from '../../../infrastructure/container';
 import { AuthController } from '../controllers/AuthController';
 import { validateRequest } from './validation';
@@ -13,6 +13,14 @@ export function authRoutes(container: Container): Router {
     body('password').isString().notEmpty().withMessage('Contraseña requerida'),
     validateRequest,
     controller.login,
+  );
+
+  // Ruta pública: callback SSO. Recibe el ticket emitido por el Core,
+  // lo canjea servidor-a-servidor y devuelve { token, user, redirect }.
+  router.get('/sso',
+    query('ticket').isString().notEmpty().withMessage('ticket requerido'),
+    validateRequest,
+    controller.ssoCallback,
   );
 
   return router;
