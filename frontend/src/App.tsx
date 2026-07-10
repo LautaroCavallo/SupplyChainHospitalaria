@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
+import SsoCallback from './pages/SsoCallback';
 import Dashboard from './pages/Dashboard';
 import Inventario from './pages/Inventario';
 import InventarioDetalle from './pages/InventarioDetalle';
@@ -18,6 +19,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/auth/sso" element={<SsoCallback />} />
       <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/inventario" element={<Inventario />} />

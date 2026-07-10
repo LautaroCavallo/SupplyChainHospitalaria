@@ -21,4 +21,17 @@ export const config = {
     comprasApiUrl: process.env.COMPRAS_URL || '',
     comprasUseMock: process.env.COMPRAS_USE_MOCK !== 'false',
   },
+  kafka: {
+    // Si está deshabilitado, la API arranca igual pero el envío a Compras falla al publicar.
+    enabled: process.env.KAFKA_ENABLED !== 'false',
+    brokers: (process.env.KAFKA_BROKERS || 'localhost:9092').split(',').map((b) => b.trim()).filter(Boolean),
+    clientId: process.env.KAFKA_CLIENT_ID || 'farmacia-insumos',
+    consumerGroup: process.env.KAFKA_CONSUMER_GROUP || 'compras-worker',
+    topics: {
+      ordenSolicitada: process.env.KAFKA_TOPIC_ORDEN || 'compras.orden-solicitada',
+      // Dead Letter Topic: eventos que agotaron los reintentos.
+      ordenSolicitadaDLT: `${process.env.KAFKA_TOPIC_ORDEN || 'compras.orden-solicitada'}.DLT`,
+    },
+    maxReintentos: parseInt(process.env.KAFKA_MAX_REINTENTOS || '3', 10),
+  },
 };

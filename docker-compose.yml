@@ -1,0 +1,52 @@
+# Infraestructura de eventos para desarrollo local.
+#
+# Usa Redpanda: broker 100% compatible con la API de Kafka (mismos clientes kafkajs,
+# mismo código, misma arquitectura). Se eligió para dev local porque arranca liviano
+# y sin la fricción de config de la imagen apache/kafka bajo Podman/WSL.
+# Para el deploy en la nube se puede usar Apache Kafka: el código no cambia.
+#
+#   podman compose up -d        → levanta el broker (Kafka API en localhost:9092)
+#   podman compose --profile ui up -d   → además levanta la consola web (:8080)
+#
+# La cola vive en el volumen 'kafka-data': si matás la API o el worker,
+# los eventos encolados sobreviven y se procesan al reiniciar el worker.
+
+services:
+  kafka:
+    image: redpandadata/redpanda:v24.2.7
+    container_name: scb-kafka
+    command:
+      - redpanda
+      - start
+      - --mode
+      - dev-container
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://localhost:9092
+      - --node-id
+      - "0"
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy:.*true'"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+
+  # Consola web opcional (perfil 'ui'): muestra topics y lag del consumer group.
+  console:
+    image: redpandadata/console:v2.7.2
+    container_name: scb-kafka-ui
+    profiles: ["ui"]
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      - kafka
+
+volumes:
+  kafka-data:

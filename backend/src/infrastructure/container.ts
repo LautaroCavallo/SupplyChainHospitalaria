@@ -12,6 +12,7 @@ import { ComprasFixtureService } from './external/fixtures/ComprasFixtureService
 import { HttpComprasService } from './external/compras/HttpComprasService';
 import { CoreAuthService } from './external/core/CoreAuthService';
 import { HceRecetaService } from './external/hce/HceRecetaService';
+import { KafkaEventPublisher } from './messaging/KafkaEventPublisher';
 import { config } from '../config';
 
 import { BuscarMedicamentos } from '../application/use-cases/vademecum/BuscarMedicamentos';
@@ -76,6 +77,10 @@ export function createContainer() {
     ? new HttpComprasService(config.integrations.comprasApiUrl)
     : new ComprasFixtureService();
 
+  // Publisher de eventos (Kafka). Lo usa la API para encolar el envío a Compras;
+  // el worker lo reutiliza para publicar en el Dead Letter Topic.
+  const eventPublisher = new KafkaEventPublisher();
+
   const buscarMedicamentos = new BuscarMedicamentos(vademecumService);
   const obtenerMedicamento = new ObtenerMedicamento(vademecumService);
 
@@ -110,7 +115,7 @@ export function createContainer() {
   const actualizarSolicitudCompra = new ActualizarSolicitudCompra(solicitudCompraRepo, inventarioRepo);
   const eliminarSolicitudCompra = new EliminarSolicitudCompra(solicitudCompraRepo);
   const confirmarBorrador = new ConfirmarBorrador(solicitudCompraRepo);
-  const enviarOrdenCompra = new EnviarOrdenCompra(solicitudCompraRepo, comprasService);
+  const enviarOrdenCompra = new EnviarOrdenCompra(solicitudCompraRepo, eventPublisher);
   const confirmarAdjudicacion = new ConfirmarAdjudicacion(solicitudCompraRepo);
 
   const validarReceta = new ValidarReceta(recetaService, movimientoRepo, inventarioRepo);
@@ -164,6 +169,8 @@ export function createContainer() {
     transferirStock,
     obtenerStockPorDeposito,
     coreAuthService,
+    comprasService,
+    eventPublisher,
     inventarioRepository: inventarioRepo,
     loteRepository: loteRepo,
     notificacionRepository: notificacionRepo,
