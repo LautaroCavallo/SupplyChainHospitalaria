@@ -1,3 +1,4 @@
+import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { AppError } from '../../../application/errors/AppError';
 import { config } from '../../../config';
 
@@ -34,9 +35,20 @@ interface CoreAuthResponse {
 
 export class CoreAuthService {
   private readonly baseUrl = config.integrations.coreApiUrl.replace(/\/$/, '');
+  private readonly jwksUrl = config.integrations.coreJwksUrl;
+  // JWKS remoto de Core (cachea las claves y reintenta si aparece un kid nuevo).
+  private jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
   get enabled(): boolean {
     return Boolean(this.baseUrl);
+  }
+
+  private getJwks(): ReturnType<typeof createRemoteJWKSet> {
+    if (!this.jwks) {
+      if (!this.jwksUrl) throw new AppError('CORE_JWKS_URL no configurado', 500);
+      this.jwks = createRemoteJWKSet(new URL(this.jwksUrl));
+    }
+    return this.jwks;
   }
 
   async login(email: string, password: string): Promise<CoreLoginResult> {
@@ -79,12 +91,33 @@ export class CoreAuthService {
       };
     }
 
-    const response = await this.request<CoreAuthResponse | CoreUserResponse>('/auth/validate', {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    // Verificación LOCAL de la firma contra el JWKS de Core (RS256). No llama a Core por request.
+    const jwks = this.getJwks(); // errores de config (URL faltante) => 500, fuera del try
+    let payload: JWTPayload;
+    try {
+      ({ payload } = await jwtVerify(token, jwks, { algorithms: ['RS256'] }));
+    } catch {
+      // token malformado, firma inválida, expirado, etc. => 401
+      throw new AppError('Token JWT inválido o expirado', 401);
+    }
+    return this.userFromClaims(payload);
+  }
 
-    return this.mapUser((response as CoreAuthResponse).user ?? (response as CoreUserResponse));
+  /**
+   * Mapea los claims del JWT de Core a nuestro modelo.
+   * Core emite: { user_id: number, permissions: string[], exp, iat }.
+   * El token NO trae rol ni email → el rol se deriva de los permisos y el nombre queda genérico.
+   */
+  private userFromClaims(payload: JWTPayload): CoreUser {
+    const userId = String((payload as any).user_id ?? payload.sub ?? '');
+    const permisos = Array.isArray((payload as any).permissions) ? ((payload as any).permissions as string[]) : [];
+    return {
+      id: userId,
+      nombre: (payload as any).name ?? (payload as any).email ?? `Usuario ${userId}`,
+      email: (payload as any).email,
+      rol: (payload as any).role ?? (permisos.length ? 'CORE_USER' : 'USUARIO'),
+      permisos,
+    };
   }
 
   private async request<T>(path: string, init: RequestInit): Promise<T> {

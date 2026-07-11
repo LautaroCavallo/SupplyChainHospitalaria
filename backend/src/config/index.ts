@@ -14,6 +14,8 @@ export const config = {
   logLevel: process.env.LOG_LEVEL || 'info',
   integrations: {
     coreApiUrl: process.env.CORE_API_URL || '',
+    // JWKS de Core para verificar la firma de los JWT localmente (RS256), sin llamar a Core por request.
+    coreJwksUrl: process.env.CORE_JWKS_URL || (process.env.CORE_API_URL ? `${process.env.CORE_API_URL.replace(/\/$/, '')}/.well-known/jwks.json` : ''),
     hceApiUrl: process.env.HCE_API_URL || '',
     externalTimeoutMs: parseInt(process.env.EXTERNAL_TIMEOUT_MS || '8000', 10),
     authMode: process.env.AUTH_MODE || 'mock',
