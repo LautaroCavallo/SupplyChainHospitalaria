@@ -24,7 +24,7 @@ Identificador: `modulo3-farmacia`
 |---|---|---|
 | **Core (Mód. 10)** | Autenticación: validamos los JWT que emite Core (JWKS RS256), y usamos `POST /auth/login` y `POST /auth/sso-exchange`. | REST + JWKS (`/.well-known/jwks.json`) |
 | **Módulo 7 (Compras / Facturación)** | Le enviamos **órdenes de compra** cuando un insumo llega al punto de reorden. Esperamos el acuse y, luego, la **adjudicación/rechazo** (por callback). | REST: `POST /api/compras/ordenes-compra` con `Authorization: Bearer <JWT de Core>` — **ya probado (HTTP 201)** |
-| **HCE (Mód. 1)** *(pendiente)* | Dispensación de recetas: validar receta electrónica + contraindicaciones + consumir. | REST (a definir con su equipo) |
+| **HCE (Mód. 1)** | Dispensación de recetas: `GET /api/v1/recetas/{id}` (validar + alertas), `PATCH /api/v1/recetas/{id}/dispensar` (marcar dispensada). | REST con JWT de Core — **integrado y probado** |
 
 > **Pedido a Core:** una **cuenta de servicio propia de Farmacia** con los permisos necesarios para autenticarnos (y, si algún flujo va por el bus, `events:log:publish`).
 
