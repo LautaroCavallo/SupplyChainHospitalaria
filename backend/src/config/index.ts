@@ -16,6 +16,11 @@ export const config = {
     coreApiUrl: process.env.CORE_API_URL || '',
     // JWKS de Core para verificar la firma de los JWT localmente (RS256), sin llamar a Core por request.
     coreJwksUrl: process.env.CORE_JWKS_URL || (process.env.CORE_API_URL ? `${process.env.CORE_API_URL.replace(/\/$/, '')}/.well-known/jwks.json` : ''),
+    // Credenciales de servicio de Farmacia para autenticarse en Core (publicar eventos, configurar colas).
+    coreServiceEmail: process.env.CORE_SERVICE_EMAIL || 'admin@admin.com',
+    coreServicePassword: process.env.CORE_SERVICE_PASSWORD || '123123',
+    // Nombre de este módulo como publicador en el bus de eventos de Core.
+    publisherModule: process.env.PUBLISHER_MODULE || 'farmacia',
     hceApiUrl: process.env.HCE_API_URL || '',
     externalTimeoutMs: parseInt(process.env.EXTERNAL_TIMEOUT_MS || '8000', 10),
     authMode: process.env.AUTH_MODE || 'mock',
