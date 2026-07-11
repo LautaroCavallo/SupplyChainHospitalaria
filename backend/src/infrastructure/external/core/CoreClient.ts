@@ -62,6 +62,23 @@ export class CoreClient {
     return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
   }
 
+  // ---- SSO (canje de ticket) ----
+
+  /**
+   * Canjea un ticket SSO de un solo uso por un JWT del Core (server-to-server).
+   * El endpoint es público (se autentica con el ticket, no requiere Bearer).
+   */
+  async exchangeSsoTicket(ticket: string): Promise<{ user: unknown; token: string }> {
+    const res = await fetch(`${this.baseUrl}/auth/sso-exchange`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticket }),
+    });
+    if (res.status === 401) throw new AppError('Ticket SSO inválido, ya usado o expirado', 401);
+    if (!res.ok) throw new AppError(`Core sso-exchange → HTTP ${res.status}`, 502);
+    return (await res.json()) as { user: unknown; token: string };
+  }
+
   // ---- Publicación de eventos (request/response) ----
 
   /**

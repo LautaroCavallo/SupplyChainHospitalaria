@@ -173,6 +173,7 @@ export function createContainer() {
     transferirStock,
     obtenerStockPorDeposito,
     coreAuthService,
+    coreClient,
     comprasService,
     eventPublisher,
     inventarioRepository: inventarioRepo,
