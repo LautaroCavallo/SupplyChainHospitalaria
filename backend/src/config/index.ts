@@ -41,4 +41,23 @@ export const config = {
     },
     maxReintentos: parseInt(process.env.KAFKA_MAX_REINTENTOS || '3', 10),
   },
+  // RabbitMQ del sistema Health Grid (para ESCUCHAR nuestras colas; publicar es vía Core).
+  rabbit: {
+    url: (() => {
+      if (process.env.RABBITMQ_URL) return process.env.RABBITMQ_URL;
+      const host = process.env.RABBITMQ_HOST;
+      if (!host) return '';
+      // El '@' del usuario (suele ser un email) debe ir escapado como %40.
+      const user = encodeURIComponent(process.env.RABBITMQ_USER || '');
+      const pass = encodeURIComponent(process.env.RABBITMQ_PASSWORD || '');
+      const port = process.env.RABBITMQ_PORT || '5672';
+      const rawVhost = process.env.RABBITMQ_VHOST || '';
+      const vhost = rawVhost && rawVhost !== '/' ? encodeURIComponent(rawVhost) : '';
+      const auth = user ? `${user}:${pass}@` : '';
+      return `amqp://${auth}${host}:${port}/${vhost}`;
+    })(),
+    prefetch: parseInt(process.env.RABBITMQ_PREFETCH || '10', 10),
+    requestsQueue: process.env.RABBITMQ_REQUESTS_QUEUE || `${process.env.PUBLISHER_MODULE || 'farmacia'}.requests`,
+    responsesQueue: process.env.RABBITMQ_RESPONSES_QUEUE || `${process.env.PUBLISHER_MODULE || 'farmacia'}.responses`,
+  },
 };
