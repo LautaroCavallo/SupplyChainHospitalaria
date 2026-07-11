@@ -20,6 +20,11 @@ export class CoreClient {
     return Boolean(this.baseUrl);
   }
 
+  /** Token de servicio válido (para autenticar llamadas REST a otros módulos, ej. Módulo 7). */
+  async getServiceToken(force = false): Promise<string> {
+    return this.ensureToken(force);
+  }
+
   /** Obtiene (y cachea) el token de servicio; con force=true fuerza un re-login. */
   private async ensureToken(force = false): Promise<string> {
     if (this.token && !force) return this.token;

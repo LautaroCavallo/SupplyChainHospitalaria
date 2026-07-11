@@ -11,6 +11,7 @@ import { RecetaFixtureService } from './external/fixtures/RecetaFixtureService';
 import { ComprasFixtureService } from './external/fixtures/ComprasFixtureService';
 import { HttpComprasService } from './external/compras/HttpComprasService';
 import { CoreAuthService } from './external/core/CoreAuthService';
+import { CoreClient } from './external/core/CoreClient';
 import { HceRecetaService } from './external/hce/HceRecetaService';
 import { KafkaEventPublisher } from './messaging/KafkaEventPublisher';
 import { config } from '../config';
@@ -68,13 +69,16 @@ export function createContainer() {
 
   const vademecumService = new VademecumFixtureService();
   const coreAuthService = new CoreAuthService();
+  // Cliente de servicio a Core (token para autenticar llamadas REST a otros módulos).
+  const coreClient = new CoreClient();
   const hceRecetaService = new HceRecetaService(() => currentAuthToken);
   const recetaService = config.integrations.recetaMode === 'hce' && hceRecetaService.enabled
     ? hceRecetaService
     : new RecetaFixtureService();
 
+  // Módulo 7 (Compras) exige JWT de Core → HttpComprasService usa el token de servicio de CoreClient.
   const comprasService = config.integrations.comprasApiUrl
-    ? new HttpComprasService(config.integrations.comprasApiUrl)
+    ? new HttpComprasService(config.integrations.comprasApiUrl, (force) => coreClient.getServiceToken(force))
     : new ComprasFixtureService();
 
   // Publisher de eventos (Kafka). Lo usa la API para encolar el envío a Compras;
