@@ -71,7 +71,7 @@ export function createContainer() {
   const coreAuthService = new CoreAuthService();
   // Cliente de servicio a Core (token para autenticar llamadas REST a otros módulos).
   const coreClient = new CoreClient();
-  const hceRecetaService = new HceRecetaService(() => currentAuthToken);
+  const hceRecetaService = new HceRecetaService(() => currentAuthToken, coreClient);
   const recetaService = config.integrations.recetaMode === 'hce' && hceRecetaService.enabled
     ? hceRecetaService
     : new RecetaFixtureService();
