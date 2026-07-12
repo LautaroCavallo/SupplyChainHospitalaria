@@ -78,7 +78,7 @@ export function createContainer() {
 
   // Módulo 7 (Compras) exige JWT de Core → HttpComprasService usa el token de servicio de CoreClient.
   const comprasService = config.integrations.comprasApiUrl
-    ? new HttpComprasService(config.integrations.comprasApiUrl, (force) => coreClient.getServiceToken(force))
+    ? new HttpComprasService(config.integrations.comprasApiUrl, (force) => coreClient.getServiceToken(force), config.integrations.comprasApiKey)
     : new ComprasFixtureService();
 
   // Publisher de eventos (Kafka). Lo usa la API para encolar el envío a Compras;

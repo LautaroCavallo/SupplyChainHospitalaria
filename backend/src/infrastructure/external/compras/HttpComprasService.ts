@@ -11,6 +11,7 @@ export class HttpComprasService implements IComprasService {
   constructor(
     private readonly comprasApiUrl: string,
     private readonly getToken?: (force?: boolean) => Promise<string>,
+    private readonly apiKey?: string,
   ) {}
 
   async enviarOrdenCompra(payload: OrdenCompraPayload): Promise<ResultadoEnvio> {
@@ -21,6 +22,8 @@ export class HttpComprasService implements IComprasService {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          // Módulo 7 exige, además del JWT, una API key propia en el header X-API-Key.
+          ...(this.apiKey ? { 'X-API-Key': this.apiKey } : {}),
         },
         body: JSON.stringify(payload),
       });
