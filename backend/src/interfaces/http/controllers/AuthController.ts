@@ -1,13 +1,27 @@
 import { Request, Response, NextFunction } from 'express';
 import { CoreAuthService } from '../../../infrastructure/external/core/CoreAuthService';
+import { LocalAuthService } from '../../../infrastructure/external/core/LocalAuthService';
 
 export class AuthController {
-  constructor(private readonly coreAuthService: CoreAuthService) {}
+  constructor(
+    private readonly coreAuthService: CoreAuthService,
+    private readonly localAuthService: LocalAuthService,
+  ) {}
 
   login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const data = await this.coreAuthService.login(req.body.email, req.body.password);
       res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { email, password, nombre, cargo, rol } = req.body;
+      const data = await this.localAuthService.register(email, password, nombre, cargo, rol);
+      res.status(201).json({ success: true, data });
     } catch (error) {
       next(error);
     }
@@ -29,7 +43,6 @@ export class AuthController {
         return;
       }
 
-      // Prevenir open redirect: solo rutas internas absolutas
       const rawRedirect = typeof redirect === 'string' ? redirect : '/';
       const safeRedirect =
         rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') && !rawRedirect.startsWith('/\\')

@@ -7,6 +7,7 @@ interface LoginResponse {
     nombre: string;
     email?: string;
     rol?: string;
+    cargo?: string;
     permisos?: string[];
   };
 }
@@ -17,6 +18,18 @@ interface SsoCallbackResponse extends LoginResponse {
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
   const res = await api.post('/auth/login', { email, password });
+  return res.data.data;
+}
+
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  nombre: string;
+  cargo?: string;
+}
+
+export async function register(payload: RegisterPayload): Promise<LoginResponse> {
+  const res = await api.post('/auth/register', payload);
   return res.data.data;
 }
 
