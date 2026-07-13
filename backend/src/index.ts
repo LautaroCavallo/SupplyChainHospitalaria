@@ -18,6 +18,11 @@ import { swaggerSpec } from './interfaces/swagger/config';
 
 const app = express();
 
+// Detrás del proxy de Railway/Vercel: confiar en X-Forwarded-Proto para que req.protocol
+// sea 'https'. Necesario para que el callbackUrl que enviamos a Módulo 7 use https:// y su
+// POST no se rompa por el redirect http→https (que convierte POST en GET → 404).
+app.set('trust proxy', true);
+
 app.use(helmet());
 app.use(cors({ origin: config.cors.origin }));
 app.use(morgan('combined', {
