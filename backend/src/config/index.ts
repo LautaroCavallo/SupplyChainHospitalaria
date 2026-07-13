@@ -25,10 +25,9 @@ export const config = {
     externalTimeoutMs: parseInt(process.env.EXTERNAL_TIMEOUT_MS || '8000', 10),
     authMode: process.env.AUTH_MODE || 'mock',
     recetaMode: process.env.RECETA_MODE || 'mock',
+    // Base del Módulo 7 vía API Gateway de Core (el Gateway agrega la API key de Facturación).
     comprasApiUrl: process.env.COMPRAS_URL || '',
     comprasUseMock: process.env.COMPRAS_USE_MOCK !== 'false',
-    // API key que exige el Módulo 7 en el header X-API-Key (además del JWT de Core).
-    comprasApiKey: process.env.COMPRAS_API_KEY || '',
   },
   kafka: {
     // Si está deshabilitado, la API arranca igual pero el envío a Compras falla al publicar.

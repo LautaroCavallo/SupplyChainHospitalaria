@@ -1,17 +1,17 @@
 import { IComprasService, OrdenCompraPayload, ResultadoEnvio } from '../../../domain/services/IComprasService';
 
 /**
- * Adapter HTTP hacia el Módulo 7 (Compras/Facturación).
+ * Adapter HTTP hacia el Módulo 7 (Compras/Facturación) — vía el API Gateway de Core.
  * POST {comprasApiUrl}/ordenes-compra con el contrato OrdenCompraFarmaciaRequest.
  *
- * Módulo 7 exige JWT de Core (Authorization: Bearer). `getToken` provee un token
- * de servicio válido; ante un 401 se fuerza un re-login y se reintenta una vez.
+ * Se consume a través del Gateway (`https://gw.healthcare.cantero.ar/api/billing/compras`),
+ * enviando solo el JWT de Core (Authorization: Bearer). El Gateway agrega la API key
+ * de Facturación al reenviar; el cliente NO debe mandarla. Ante 401 se re-loguea y reintenta.
  */
 export class HttpComprasService implements IComprasService {
   constructor(
     private readonly comprasApiUrl: string,
     private readonly getToken?: (force?: boolean) => Promise<string>,
-    private readonly apiKey?: string,
   ) {}
 
   async enviarOrdenCompra(payload: OrdenCompraPayload): Promise<ResultadoEnvio> {
@@ -22,8 +22,6 @@ export class HttpComprasService implements IComprasService {
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          // Módulo 7 exige, además del JWT, una API key propia en el header X-API-Key.
-          ...(this.apiKey ? { 'X-API-Key': this.apiKey } : {}),
         },
         body: JSON.stringify(payload),
       });
