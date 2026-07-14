@@ -55,7 +55,7 @@ export default function Perfil() {
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-semibold text-gray-900">Dr. {perfil.nombreCompleto.split(' ')[0]} V.</h2>
+            <h2 className="text-xl font-semibold text-gray-900">{perfil.nombreCompleto}</h2>
             <Badge label="Activo" variant="success" />
           </div>
           <p className="text-sm text-gray-600">{perfil.cargo}</p>

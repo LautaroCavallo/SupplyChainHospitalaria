@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/layout/Layout';
 import Login from './pages/Login';
 import SsoCallback from './pages/SsoCallback';
@@ -15,12 +15,19 @@ import Gestion from './pages/Gestion';
 import Perfil from './pages/Perfil';
 import ActividadReciente from './pages/ActividadReciente';
 
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  if (!localStorage.getItem('healthgrid_token')) {
+    return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/auth/sso" element={<SsoCallback />} />
-      <Route element={<Layout />}>
+      <Route element={<RequireAuth><Layout /></RequireAuth>}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/inventario" element={<Inventario />} />
         <Route path="/inventario/:id" element={<InventarioDetalle />} />

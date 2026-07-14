@@ -1,25 +1,42 @@
 import api from './client';
 import type { PerfilUsuario, PerfilUpdatePayload } from '../types';
 
+const USER_KEY = 'healthgrid_user';
+const PERFIL_KEY = 'healthgrid_perfil';
+
+function getBaseUser() {
+  try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch { return null; }
+}
+
+function getStoredPerfil() {
+  try { return JSON.parse(localStorage.getItem(PERFIL_KEY) || 'null'); } catch { return null; }
+}
+
+function buildPerfilFromStorage(): PerfilUsuario {
+  const user = getBaseUser();
+  const extra = getStoredPerfil();
+  return {
+    id: user?.id ?? '1',
+    nombreCompleto: extra?.nombreCompleto ?? user?.nombre ?? 'Usuario',
+    email: extra?.email ?? user?.email ?? '',
+    telefono: extra?.telefono,
+    documento: extra?.documento,
+    cargo: extra?.cargo ?? user?.cargo ?? 'Farmacéutico',
+    especialidad: extra?.especialidad,
+    institucion: extra?.institucion,
+    matricula: extra?.matricula,
+    estado: 'ACTIVO',
+    notifAlertasStock: extra?.notifAlertasStock ?? true,
+    notifNuevosProtocolos: extra?.notifNuevosProtocolos ?? true,
+  };
+}
+
 export async function getPerfil(): Promise<PerfilUsuario> {
   try {
     const res = await api.get('/perfil');
     return res.data.data ?? res.data;
   } catch {
-    return {
-      id: '1',
-      nombreCompleto: 'Alejandro Villalobos',
-      email: 'a.villalobos@clinicasanctuary.com',
-      telefono: '+54 9 11 4455-6677',
-      documento: '28.441.229',
-      cargo: 'Farmacéutico Jefe',
-      especialidad: 'Farmacia Clínica y Hospitalaria',
-      institucion: 'Clinical Sanctuary - Central',
-      matricula: 'MP-9384-C',
-      estado: 'ACTIVO',
-      notifAlertasStock: true,
-      notifNuevosProtocolos: true,
-    };
+    return buildPerfilFromStorage();
   }
 }
 
@@ -28,6 +45,17 @@ export async function actualizarPerfil(data: PerfilUpdatePayload): Promise<Perfi
     const res = await api.put('/perfil', data);
     return res.data.data ?? res.data;
   } catch {
-    throw new Error('Error al actualizar perfil');
+    // Persistir en localStorage
+    const current = getStoredPerfil() ?? {};
+    localStorage.setItem(PERFIL_KEY, JSON.stringify({ ...current, ...data }));
+
+    // Actualizar nombre en healthgrid_user si cambió
+    const user = getBaseUser();
+    if (user && data.nombreCompleto) {
+      user.nombre = data.nombreCompleto;
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    }
+
+    return buildPerfilFromStorage();
   }
 }

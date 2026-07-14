@@ -7,8 +7,13 @@ interface LoginResponse {
     nombre: string;
     email?: string;
     rol?: string;
+    cargo?: string;
     permisos?: string[];
   };
+}
+
+interface SsoCallbackResponse extends LoginResponse {
+  redirect: string;
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
@@ -16,8 +21,23 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return res.data.data;
 }
 
-// Canje del ticket SSO (nuestro backend lo intercambia con Core server-to-server).
-export async function ssoExchange(ticket: string): Promise<LoginResponse> {
-  const res = await api.post('/auth/sso-exchange', { ticket });
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  nombre: string;
+  cargo?: string;
+}
+
+export async function register(payload: RegisterPayload): Promise<LoginResponse> {
+  const res = await api.post('/auth/register', payload);
+  return res.data.data;
+}
+
+/**
+ * Canjea el ticket SSO a través del backend (servidor-a-servidor con el Core).
+ * Devuelve el JWT, los datos del usuario y la ruta interna de redirección.
+ */
+export async function exchangeSSOTicket(ticket: string): Promise<SsoCallbackResponse> {
+  const res = await api.get('/auth/sso', { params: { ticket } });
   return res.data.data;
 }

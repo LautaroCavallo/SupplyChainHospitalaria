@@ -1,12 +1,14 @@
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
 import { AppError } from '../../../application/errors/AppError';
 import { config } from '../../../config';
+import { LocalAuthService, verifyLocalToken } from './LocalAuthService';
 
 export interface CoreUser {
   id: string;
   nombre: string;
   email?: string;
   rol: string;
+  cargo?: string;
   permisos?: string[];
 }
 
@@ -33,35 +35,39 @@ interface CoreAuthResponse {
   user?: CoreUserResponse;
 }
 
+// Module-level singleton — shared across all CoreAuthService instances
+let _jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+
 export class CoreAuthService {
   private readonly baseUrl = config.integrations.coreApiUrl.replace(/\/$/, '');
-  private readonly jwksUrl = config.integrations.coreJwksUrl;
-  // JWKS remoto de Core (cachea las claves y reintenta si aparece un kid nuevo).
-  private jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+  private readonly local = new LocalAuthService();
 
   get enabled(): boolean {
     return Boolean(this.baseUrl);
   }
 
+  private get jwksUrl(): string {
+    const base = this.baseUrl || 'https://api.healthcare.cantero.ar';
+    return `${base}/.well-known/jwks.json`;
+  }
+
   private getJwks(): ReturnType<typeof createRemoteJWKSet> {
-    if (!this.jwks) {
-      if (!this.jwksUrl) throw new AppError('CORE_JWKS_URL no configurado', 500);
-      this.jwks = createRemoteJWKSet(new URL(this.jwksUrl));
+    if (!_jwks) {
+      _jwks = createRemoteJWKSet(new URL(this.jwksUrl));
     }
-    return this.jwks;
+    return _jwks;
   }
 
   async login(email: string, password: string): Promise<CoreLoginResult> {
-    if (!this.enabled) {
+    // Usar auth local cuando el modo no es 'core', independientemente de si CORE_API_URL está configurada.
+    if (config.integrations.authMode !== 'core') {
+      const count = await this.local.getUserCount();
+      if (count > 0) {
+        return this.local.login(email, password);
+      }
       return {
         token: 'dev-token',
-        user: {
-          id: 'usr-001',
-          nombre: 'Usuario Farmacia',
-          email,
-          rol: 'FARMACEUTICO_JEFE',
-          permisos: ['farmacia:*'],
-        },
+        user: { id: 'usr-001', nombre: 'Usuario Farmacia', email, rol: 'FARMACEUTICO_JEFE', permisos: ['farmacia:*'] },
       };
     }
 
@@ -81,43 +87,65 @@ export class CoreAuthService {
     };
   }
 
-  async validateToken(token: string): Promise<CoreUser> {
+  /**
+   * Canje de ticket SSO: intercambia el ticket de un solo uso por un JWT.
+   * Se llama servidor-a-servidor; el ticket nunca queda expuesto al navegador.
+   */
+  async exchangeTicket(ticket: string): Promise<CoreLoginResult> {
     if (!this.enabled) {
       return {
-        id: 'usr-001',
-        nombre: 'Dr. Alejandro V.',
-        rol: 'FARMACEUTICO_JEFE',
-        permisos: ['farmacia:*'],
+        token: 'dev-sso-token',
+        user: {
+          id: 'sso-usr-001',
+          nombre: 'Usuario SSO (dev)',
+          rol: 'FARMACEUTICO_JEFE',
+          permisos: ['farmacia:*'],
+        },
       };
     }
 
-    // Verificación LOCAL de la firma contra el JWKS de Core (RS256). No llama a Core por request.
-    const jwks = this.getJwks(); // errores de config (URL faltante) => 500, fuera del try
-    let payload: JWTPayload;
-    try {
-      ({ payload } = await jwtVerify(token, jwks, { algorithms: ['RS256'] }));
-    } catch {
-      // token malformado, firma inválida, expirado, etc. => 401
-      throw new AppError('Token JWT inválido o expirado', 401);
+    const response = await this.request<CoreAuthResponse>('/auth/sso-exchange', {
+      method: 'POST',
+      body: JSON.stringify({ ticket }),
+    });
+
+    const token = response.token ?? response.accessToken ?? response.access_token;
+    if (!token) {
+      throw new AppError('Core no devolvió token en el canje SSO', 502);
     }
-    return this.userFromClaims(payload);
+
+    return {
+      token,
+      user: this.mapUser(response.user),
+    };
   }
 
   /**
-   * Mapea los claims del JWT de Core a nuestro modelo.
-   * Core emite: { user_id: number, permissions: string[], exp, iat }.
-   * El token NO trae rol ni email → el rol se deriva de los permisos y el nombre queda genérico.
+   * Valida el JWT usando el JWKS del Core (validación local, sin round-trip por request).
+   * Si la validación JWKS falla (rotación de claves, token legacy), hace fallback al
+   * endpoint /auth/validate del Core.
    */
-  private userFromClaims(payload: JWTPayload): CoreUser {
-    const userId = String((payload as any).user_id ?? payload.sub ?? '');
-    const permisos = Array.isArray((payload as any).permissions) ? ((payload as any).permissions as string[]) : [];
-    return {
-      id: userId,
-      nombre: (payload as any).name ?? (payload as any).email ?? `Usuario ${userId}`,
-      email: (payload as any).email,
-      rol: (payload as any).role ?? (permisos.length ? 'CORE_USER' : 'USUARIO'),
-      permisos,
-    };
+  async validateToken(token: string): Promise<CoreUser> {
+    if (!this.enabled) {
+      if (token && token !== 'dev-token') {
+        const local = await verifyLocalToken(token);
+        if (local) return local;
+      }
+      return { id: 'usr-001', nombre: 'Dr. Alejandro V.', rol: 'FARMACEUTICO_JEFE', permisos: ['farmacia:*'] };
+    }
+
+    // 1) Validación local con JWKS (RS256 + exp). No requiere llamada al Core.
+    try {
+      const { payload } = await jwtVerify(token, this.getJwks(), { algorithms: ['RS256'] });
+      return this.mapUserFromJwtPayload(payload);
+    } catch {
+      // 2) Fallback: /auth/validate del Core (cubre rotación de claves y tokens legacy).
+      const response = await this.request<CoreAuthResponse | CoreUserResponse>('/auth/validate', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return this.mapUser((response as CoreAuthResponse).user ?? (response as CoreUserResponse));
+    }
   }
 
   private async request<T>(path: string, init: RequestInit): Promise<T> {
@@ -142,6 +170,21 @@ export class CoreAuthService {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  /**
+   * Mapea los claims del JWT (user_id, permissions) al CoreUser del módulo.
+   * El JWT no incluye nombre ni rol, así que se usan valores neutros.
+   */
+  private mapUserFromJwtPayload(payload: JWTPayload): CoreUser {
+    const permissions = payload['permissions'];
+    return {
+      id: String(payload['user_id'] ?? 'core-user'),
+      nombre: String(payload['nombre'] ?? payload['name'] ?? 'Usuario Core'),
+      email: payload['email'] as string | undefined,
+      rol: String(payload['rol'] ?? payload['role'] ?? 'USUARIO'),
+      permisos: Array.isArray(permissions) ? permissions.map(String) : [],
+    };
   }
 
   private mapUser(user?: CoreUserResponse, fallbackEmail?: string): CoreUser {

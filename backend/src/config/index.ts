@@ -12,6 +12,7 @@ export const config = {
       : process.env.CORS_ORIGIN || '*',
   },
   logLevel: process.env.LOG_LEVEL || 'info',
+  jwtSecret: process.env.JWT_SECRET || 'healthgrid-dev-secret-2024',
   integrations: {
     coreApiUrl: process.env.CORE_API_URL || '',
     // JWKS de Core para verificar la firma de los JWT localmente (RS256), sin llamar a Core por request.
