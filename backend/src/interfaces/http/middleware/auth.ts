@@ -20,7 +20,14 @@ declare global {
 
 export function createAuthMiddleware(coreAuthService: CoreAuthService) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    if (req.path.startsWith('/api/v1/auth/login') || req.path.startsWith('/api/v1/auth/sso') || req.path.startsWith('/api/docs') || req.path === '/health') {
+    // Endpoints públicos: auth (login, register, sso, sso-exchange), docs, health, y el
+    // callback de adjudicación de Compras (webhook de Módulo 7, no trae nuestro JWT).
+    if (
+      req.path.startsWith('/api/v1/auth/') ||
+      req.path.startsWith('/api/docs') ||
+      req.path === '/health' ||
+      req.path.includes('/confirmacion-adjudicacion')
+    ) {
       next();
       return;
     }
