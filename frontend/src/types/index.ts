@@ -304,6 +304,7 @@ export interface RecetaDetalle {
   valida: boolean;
   errores?: string[];
   alertas?: string[];
+  alergias?: string[];
   medicoNombre: string;
   medicoMatricula: string;
   medicoEspecialidad: string;

@@ -13,6 +13,7 @@ export async function validarReceta(recetaId: string): Promise<RecetaDetalle> {
     valida: data.valida ?? false,
     errores: data.errores ?? [],
     alertas: data.alertas ?? [],
+    alergias: data.alergias ?? [],
     medicoNombre: data.medicoNombre,
     medicoMatricula: data.medicoId,
     medicoEspecialidad: 'Clínica',

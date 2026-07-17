@@ -39,6 +39,12 @@ export default function Pacientes() {
     direction: 'asc',
   });
 
+  // Alertas clínicas que no son de alergia (las de alergia ya se muestran aparte, con el alérgeno).
+  const otrasAlertas = useMemo(() => {
+    const alergias = receta?.alergias ?? [];
+    return (receta?.alertas ?? []).filter((alerta) => !alergias.some((a) => alerta.includes(a)));
+  }, [receta?.alertas, receta?.alergias]);
+
   const handleValidar = async (id?: string) => {
     const idToUse = (id ?? recetaId).trim();
     if (!idToUse) return;
@@ -202,15 +208,25 @@ export default function Pacientes() {
           {error && (
             <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
           )}
-          {(receta?.alertas?.length ?? 0) > 0 && (
+          {(receta?.alergias?.length ?? 0) > 0 && (
+            <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              <p className="font-semibold">⚠ El paciente tiene alergia a: {receta!.alergias!.join(', ')}</p>
+              {!receta!.consumida && (
+                <p className="mt-1.5 text-xs text-red-600">
+                  Puede dispensar la receta de todas formas, previa confirmación.
+                </p>
+              )}
+            </div>
+          )}
+          {otrasAlertas.length > 0 && (
             <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
-              <p className="font-semibold">⚠ Alertas clínicas de la receta</p>
+              <p className="font-semibold">⚠ Otras alertas clínicas de la receta</p>
               <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
-                {receta!.alertas!.map((alerta, i) => (
+                {otrasAlertas.map((alerta, i) => (
                   <li key={i}>{alerta}</li>
                 ))}
               </ul>
-              {!receta!.consumida && (
+              {!receta?.consumida && (
                 <p className="mt-1.5 text-xs text-amber-600">
                   Puede dispensar la receta de todas formas, previa confirmación.
                 </p>
@@ -349,13 +365,25 @@ export default function Pacientes() {
 
       <ConfirmModal
         isOpen={confirmConsumoOpen}
-        title={(receta?.alertas?.length ?? 0) > 0 ? 'Receta con alertas clínicas' : 'Confirmar consignación'}
-        description={
-          (receta?.alertas?.length ?? 0) > 0
-            ? `Esta receta presenta alertas clínicas (${receta!.alertas!.join('; ')}). ¿Confirma que desea dispensarla de todas formas? Una vez confirmada no podrá volver a dispensarse.`
-            : '¿Confirmar la dispensación de esta receta? Una vez confirmada no podrá volver a dispensarse.'
+        title={
+          (receta?.alergias?.length ?? 0) > 0
+            ? 'Alerta de alergia'
+            : otrasAlertas.length > 0
+              ? 'Receta con alertas clínicas'
+              : 'Confirmar consignación'
         }
-        confirmLabel={(receta?.alertas?.length ?? 0) > 0 ? 'Dispensar de todas formas' : 'Registrar consumo'}
+        description={
+          (receta?.alergias?.length ?? 0) > 0
+            ? `El paciente tiene alergia a ${receta!.alergias!.join(', ')}, ¿Dispensar de todas formas? Una vez confirmada no podrá volver a dispensarse.`
+            : otrasAlertas.length > 0
+              ? `Esta receta presenta alertas clínicas (${otrasAlertas.join('; ')}). ¿Confirma que desea dispensarla de todas formas? Una vez confirmada no podrá volver a dispensarse.`
+              : '¿Confirmar la dispensación de esta receta? Una vez confirmada no podrá volver a dispensarse.'
+        }
+        confirmLabel={
+          (receta?.alergias?.length ?? 0) > 0 || otrasAlertas.length > 0
+            ? 'Dispensar de todas formas'
+            : 'Registrar consumo'
+        }
         cancelLabel="Cancelar"
         loading={savingConsumo}
         onConfirm={handleRegistrarConsumo}

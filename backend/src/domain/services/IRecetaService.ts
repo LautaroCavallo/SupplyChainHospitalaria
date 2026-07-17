@@ -8,6 +8,7 @@ export interface RecetaValidacion {
   items: RecetaItem[];
   errores: string[];
   alertas: string[];
+  alergias: string[];
   consumida: boolean;
   estado: 'Activa' | 'Consumida' | 'Vencida';
 }

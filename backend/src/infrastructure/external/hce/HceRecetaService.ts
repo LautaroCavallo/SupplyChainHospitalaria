@@ -54,9 +54,20 @@ export class HceRecetaService implements IRecetaService {
       errores.push(`La receta está en estado ${receta.estado}`);
     }
 
-    // Las alertas clínicas no invalidan la receta: se muestran para que el
-    // farmacéutico decida si dispensa igualmente, previa confirmación.
-    const alertas = (receta.alertas_clinicas ?? []).map((alerta) => this.describirAlerta(alerta));
+    // Las alertas clínicas (incluidas las alergias) no invalidan la receta:
+    // se muestran para que el farmacéutico decida si dispensa igualmente,
+    // previa confirmación.
+    const alertas: string[] = [];
+    const alergias: string[] = [];
+    for (const raw of receta.alertas_clinicas ?? []) {
+      const { esAlergia, detalle } = this.parseAlerta(raw);
+      if (esAlergia) {
+        alergias.push(detalle);
+        alertas.push(`El paciente tiene alergia a ${detalle}`);
+      } else {
+        alertas.push(detalle);
+      }
+    }
 
     const consumida = receta.estado === 'Dispensada';
     return {
@@ -75,6 +86,7 @@ export class HceRecetaService implements IRecetaService {
       })),
       errores,
       alertas,
+      alergias,
       consumida,
       estado: consumida ? 'Consumida' : receta.estado === 'Activa' ? 'Activa' : 'Vencida',
     };
@@ -101,15 +113,29 @@ export class HceRecetaService implements IRecetaService {
     };
   }
 
-  /** HCE no documenta un shape fijo para las alertas clínicas; se intenta extraer un mensaje legible. */
-  private describirAlerta(alerta: unknown): string {
-    if (typeof alerta === 'string') return alerta;
+  /**
+   * HCE no documenta un shape fijo para las alertas clínicas; se intenta
+   * reconocer las de tipo alergia (para poder nombrar el alérgeno) y, para
+   * el resto, extraer un mensaje legible.
+   */
+  private parseAlerta(alerta: unknown): { esAlergia: boolean; detalle: string } {
+    if (typeof alerta === 'string') {
+      return { esAlergia: /alerg/i.test(alerta), detalle: alerta };
+    }
     if (alerta && typeof alerta === 'object') {
       const obj = alerta as Record<string, unknown>;
-      const mensaje = obj.mensaje ?? obj.descripcion ?? obj.detalle ?? obj.tipo;
-      if (typeof mensaje === 'string') return mensaje;
+      const tipo = typeof obj.tipo === 'string' ? obj.tipo : '';
+      const esAlergia = /alerg/i.test(tipo) || obj.alergeno != null;
+      const valor = obj.alergeno ?? obj.sustancia ?? obj.medicamento ?? obj.mensaje ?? obj.descripcion ?? obj.detalle;
+      if (esAlergia) {
+        return {
+          esAlergia: true,
+          detalle: typeof valor === 'string' && valor.trim() ? valor.trim() : 'alérgeno no especificado',
+        };
+      }
+      if (typeof valor === 'string') return { esAlergia: false, detalle: valor };
     }
-    return 'Alerta clínica activa';
+    return { esAlergia: false, detalle: 'Alerta clínica activa' };
   }
 
   private numericId(recetaId: string): number {
