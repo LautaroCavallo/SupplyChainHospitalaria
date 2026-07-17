@@ -3,6 +3,7 @@ import { query } from 'express-validator';
 import { Container } from '../../../infrastructure/container';
 import { DashboardController } from '../controllers/DashboardController';
 import { validateRequest } from './validation';
+import { requirePermiso } from '../middleware/permisos';
 
 export function dashboardRoutes(container: Container): Router {
   const router = Router();
@@ -10,6 +11,8 @@ export function dashboardRoutes(container: Container): Router {
     container.obtenerDashboard,
     container.obtenerActividadReciente,
   );
+
+  router.use(requirePermiso('farmacia:dashboard:read'));
 
   router.get('/', controller.summary);
 

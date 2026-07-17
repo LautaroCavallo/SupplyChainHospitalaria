@@ -3,6 +3,7 @@ import { body, param, query } from 'express-validator';
 import { InventarioController } from '../controllers/InventarioController';
 import { Container } from '../../../infrastructure/container';
 import { validateRequest } from './validation';
+import { requirePermiso } from '../middleware/permisos';
 
 export function inventarioRoutes(container: Container): Router {
   const router = Router();
@@ -16,6 +17,8 @@ export function inventarioRoutes(container: Container): Router {
     container.obtenerLotes,
     container.obtenerHistorialLote,
   );
+
+  router.use(requirePermiso('farmacia:inventario:read'));
 
   router.get('/',
     query('page').optional().isInt({ min: 1 }).toInt(),
@@ -56,6 +59,7 @@ export function inventarioRoutes(container: Container): Router {
   );
 
   router.post('/:id/ajuste',
+    requirePermiso('farmacia:inventario:write'),
     param('id').isUUID(),
     body('cantidad').isInt({ min: 1 }).withMessage('Cantidad debe ser un número entero positivo'),
     body('tipo').isIn(['INCREMENTO', 'DECREMENTO']).withMessage('Tipo debe ser INCREMENTO o DECREMENTO'),

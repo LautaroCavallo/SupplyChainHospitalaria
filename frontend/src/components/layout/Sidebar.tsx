@@ -8,14 +8,15 @@ import {
   Wrench,
   LogOut,
 } from 'lucide-react';
+import { hasPermiso } from '../../utils/permisos';
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/inventario', label: 'Inventario', icon: Box },
-  { to: '/recepciones', label: 'Recepciones', icon: Inbox },
-  { to: '/pacientes', label: 'Pacientes', icon: Users },
-  { to: '/compras', label: 'Compras', icon: BarChart2 },
-  { to: '/gestion', label: 'Gestion', icon: Wrench },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, permiso: 'farmacia:dashboard:read' },
+  { to: '/inventario', label: 'Inventario', icon: Box, permiso: 'farmacia:inventario:read' },
+  { to: '/recepciones', label: 'Recepciones', icon: Inbox, permiso: 'farmacia:recepciones:read' },
+  { to: '/pacientes', label: 'Pacientes', icon: Users, permiso: 'farmacia:pacientes:read' },
+  { to: '/compras', label: 'Compras', icon: BarChart2, permiso: 'farmacia:compras:read' },
+  { to: '/gestion', label: 'Gestion', icon: Wrench, permiso: 'farmacia:gestion:read' },
 ];
 
 function getStoredUser() {
@@ -58,7 +59,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="mt-3 flex flex-1 flex-col gap-0.5 px-2.5">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {navItems.filter(({ permiso }) => hasPermiso(permiso)).map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}

@@ -11,6 +11,7 @@ import ProveedorDetalleModal from '../components/gestion/ProveedorDetalleModal';
 import ProveedorFormModal from '../components/gestion/ProveedorFormModal';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import { applySortDirection, compareNumber, compareText, nextSortDirection } from '../utils/sort';
+import { hasPermiso } from '../utils/permisos';
 
 const categorias = ['Analgésicos', 'Antibióticos', 'Cardiología', 'Endocrinología', 'Anestesia', 'Otro'];
 type MedSortKey = 'nombre' | 'categoria' | 'presentacion' | 'ean' | 'laboratorio' | 'estado';
@@ -33,6 +34,7 @@ function getMedIcon(categoria: string) {
 }
 
 export default function Gestion() {
+  const puedeEscribir = hasPermiso('farmacia:gestion:write');
   const [medData, setMedData] = useState<PaginatedResponse<MedicamentoListItem> | null>(null);
   const [provData, setProvData] = useState<PaginatedResponse<Proveedor> | null>(null);
   const [summary, setSummary] = useState({ total: 0, activos: 0, inactivos: 0 });
@@ -187,11 +189,13 @@ export default function Gestion() {
       <div className="mb-8">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Detalle de medicamentos</h2>
-          <button onClick={() => { setEditMed(null); setMedModal(true); }}
-            className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-light">
-            <Plus className="h-4 w-4" />
-            Nuevo medicamento
-          </button>
+          {puedeEscribir && (
+            <button onClick={() => { setEditMed(null); setMedModal(true); }}
+              className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-light">
+              <Plus className="h-4 w-4" />
+              Nuevo medicamento
+            </button>
+          )}
         </div>
 
         {/* Filters */}
@@ -256,14 +260,18 @@ export default function Gestion() {
                         </td>
                         <td className="px-6 py-3">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={() => { setEditMed(m); setMedModal(true); }}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand">
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => handleDeleteMed(m.id)}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {puedeEscribir && (
+                              <>
+                                <button onClick={() => { setEditMed(m); setMedModal(true); }}
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand">
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button onClick={() => handleDeleteMed(m.id)}
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -287,13 +295,15 @@ export default function Gestion() {
       <div>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Detalle de proveedores</h2>
-          <button
-            onClick={() => setNuevoProvModal(true)}
-            className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-light"
-          >
-            <Plus className="h-4 w-4" />
-            Nuevo proveedor
-          </button>
+          {puedeEscribir && (
+            <button
+              onClick={() => setNuevoProvModal(true)}
+              className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-light"
+            >
+              <Plus className="h-4 w-4" />
+              Nuevo proveedor
+            </button>
+          )}
         </div>
 
         <div className="mb-3 flex items-center gap-3">
@@ -351,13 +361,17 @@ export default function Gestion() {
                               className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand">
                               <Eye className="h-4 w-4" />
                             </button>
-                            <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand">
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => handleDeleteProv(p.id)}
-                              className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {puedeEscribir && (
+                              <>
+                                <button className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand">
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button onClick={() => handleDeleteProv(p.id)}
+                                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500">
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

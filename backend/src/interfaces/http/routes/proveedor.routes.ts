@@ -3,6 +3,7 @@ import { body, param, query } from 'express-validator';
 import { ProveedorController } from '../controllers/ProveedorController';
 import { Container } from '../../../infrastructure/container';
 import { validateRequest } from './validation';
+import { requirePermiso } from '../middleware/permisos';
 
 export function proveedorRoutes(container: Container): Router {
   const router = Router();
@@ -13,6 +14,8 @@ export function proveedorRoutes(container: Container): Router {
     container.actualizarProveedor,
     container.eliminarProveedor,
   );
+
+  router.use(requirePermiso('farmacia:gestion:read'));
 
   router.get('/',
     query('page').optional().isInt({ min: 1 }).toInt(),
@@ -30,6 +33,7 @@ export function proveedorRoutes(container: Container): Router {
   );
 
   router.post('/',
+    requirePermiso('farmacia:gestion:write'),
     body('razonSocial').isString().trim().notEmpty().withMessage('Razón social es requerida'),
     body('cuit').isString().trim().notEmpty().withMessage('CUIT es requerido'),
     body('direccion').optional().isString().trim(),
@@ -41,6 +45,7 @@ export function proveedorRoutes(container: Container): Router {
   );
 
   router.put('/:id',
+    requirePermiso('farmacia:gestion:write'),
     param('id').isUUID(),
     body('razonSocial').optional().isString().trim().notEmpty(),
     body('direccion').optional().isString().trim(),
@@ -53,6 +58,7 @@ export function proveedorRoutes(container: Container): Router {
   );
 
   router.delete('/:id',
+    requirePermiso('farmacia:gestion:write'),
     param('id').isUUID(),
     validateRequest,
     controller.delete,

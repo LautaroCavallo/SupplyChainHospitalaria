@@ -9,6 +9,7 @@ import RecepcionDetalleModal from '../components/recepciones/RecepcionDetalleMod
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import FilterTabs from '../components/common/FilterTabs';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
+import { hasPermiso } from '../utils/permisos';
 
 const estadoBadge: Record<EstadoRecepcion, { label: string; variant: 'success' | 'warning' | 'info' }> = {
   BORRADOR:   { label: 'Borrador',   variant: 'warning' },
@@ -46,6 +47,7 @@ function getInitials(name: string): string {
 
 export default function Recepciones() {
   const navigate = useNavigate();
+  const puedeEscribir = hasPermiso('farmacia:recepciones:write');
   const [data, setData] = useState<PaginatedResponse<Recepcion> | null>(null);
   const [page, setPage] = useState(1);
   const [estadoFilter, setEstadoFilter] = useState('');
@@ -201,29 +203,35 @@ export default function Recepciones() {
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
                           {r.estado === 'BORRADOR' ? (
-                            <button
-                              onClick={() => navigate(`/recepciones/${r.id}/editar`)}
-                              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                          ) : r.estado === 'PROCESADA' ? (
-                            <>
+                            puedeEscribir && (
                               <button
                                 onClick={() => navigate(`/recepciones/${r.id}/editar`)}
-                                title="Editar recepción"
                                 className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
                               >
                                 <Edit className="h-4 w-4" />
                               </button>
-                              <button
-                                onClick={() => handleConfirmRecepcion(r)}
-                                disabled={processingId === r.id}
-                                title="Confirmar e ingresar al stock"
-                                className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-50"
-                              >
-                                {processingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
-                              </button>
+                            )
+                          ) : r.estado === 'PROCESADA' ? (
+                            <>
+                              {puedeEscribir && (
+                                <button
+                                  onClick={() => navigate(`/recepciones/${r.id}/editar`)}
+                                  title="Editar recepción"
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                              )}
+                              {puedeEscribir && (
+                                <button
+                                  onClick={() => handleConfirmRecepcion(r)}
+                                  disabled={processingId === r.id}
+                                  title="Confirmar e ingresar al stock"
+                                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand disabled:opacity-50"
+                                >
+                                  {processingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleRowClick(r)}
                                 title="Ver detalle"
@@ -267,13 +275,15 @@ export default function Recepciones() {
       </div>
 
       {/* FAB */}
-      <button
-        onClick={() => navigate('/recepciones/nueva')}
-        className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-light"
-      >
-        <Plus className="h-5 w-5" />
-        Nueva Recepción
-      </button>
+      {puedeEscribir && (
+        <button
+          onClick={() => navigate('/recepciones/nueva')}
+          className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-light"
+        >
+          <Plus className="h-5 w-5" />
+          Nueva Recepción
+        </button>
+      )}
 
       {loadingDetail && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20">
