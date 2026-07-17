@@ -303,6 +303,7 @@ export interface RecetaDetalle {
   consumida: boolean;
   valida: boolean;
   errores?: string[];
+  alertas?: string[];
   medicoNombre: string;
   medicoMatricula: string;
   medicoEspecialidad: string;

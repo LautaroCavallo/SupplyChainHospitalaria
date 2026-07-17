@@ -12,6 +12,7 @@ export async function validarReceta(recetaId: string): Promise<RecetaDetalle> {
     consumida: data.consumida ?? false,
     valida: data.valida ?? false,
     errores: data.errores ?? [],
+    alertas: data.alertas ?? [],
     medicoNombre: data.medicoNombre,
     medicoMatricula: data.medicoId,
     medicoEspecialidad: 'Clínica',
@@ -33,8 +34,9 @@ export async function registrarConsumo(
   recetaId: string,
   items: { medicamento: string; cantConsumo: number }[],
   depositoId?: string,
+  confirmarAlertas?: boolean,
 ): Promise<ConsumoResult> {
-  const res = await api.post(`/recetas/${recetaId}/consumir`, { items, depositoId });
+  const res = await api.post(`/recetas/${recetaId}/consumir`, { items, depositoId, confirmarAlertas });
   const data = res.data.data ?? {};
   return {
     itemsConsumidos: data.itemsConsumidos ?? [],

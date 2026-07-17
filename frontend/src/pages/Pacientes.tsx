@@ -102,7 +102,12 @@ export default function Pacientes() {
         }))
         .filter((item) => item.cantConsumo > 0);
 
-      const result = await registrarConsumo(receta.id, items, depositoId || undefined);
+      const result = await registrarConsumo(
+        receta.id,
+        items,
+        depositoId || undefined,
+        (receta.alertas?.length ?? 0) > 0,
+      );
       setConsumoResult(result);
       setSuccessMsg('Consumo registrado exitosamente');
       setReceta((current) => current ? { ...current, consumida: true, estado: 'Consumida' } : current);
@@ -196,6 +201,21 @@ export default function Pacientes() {
 
           {error && (
             <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
+          )}
+          {(receta?.alertas?.length ?? 0) > 0 && (
+            <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+              <p className="font-semibold">⚠ Alertas clínicas de la receta</p>
+              <ul className="mt-1.5 list-disc space-y-0.5 pl-4">
+                {receta!.alertas!.map((alerta, i) => (
+                  <li key={i}>{alerta}</li>
+                ))}
+              </ul>
+              {!receta!.consumida && (
+                <p className="mt-1.5 text-xs text-amber-600">
+                  Puede dispensar la receta de todas formas, previa confirmación.
+                </p>
+              )}
+            </div>
           )}
           {successMsg && (
             <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -329,9 +349,13 @@ export default function Pacientes() {
 
       <ConfirmModal
         isOpen={confirmConsumoOpen}
-        title="Confirmar consignación"
-        description="¿Confirmar la dispensación de esta receta? Una vez confirmada no podrá volver a dispensarse."
-        confirmLabel="Registrar consumo"
+        title={(receta?.alertas?.length ?? 0) > 0 ? 'Receta con alertas clínicas' : 'Confirmar consignación'}
+        description={
+          (receta?.alertas?.length ?? 0) > 0
+            ? `Esta receta presenta alertas clínicas (${receta!.alertas!.join('; ')}). ¿Confirma que desea dispensarla de todas formas? Una vez confirmada no podrá volver a dispensarse.`
+            : '¿Confirmar la dispensación de esta receta? Una vez confirmada no podrá volver a dispensarse.'
+        }
+        confirmLabel={(receta?.alertas?.length ?? 0) > 0 ? 'Dispensar de todas formas' : 'Registrar consumo'}
         cancelLabel="Cancelar"
         loading={savingConsumo}
         onConfirm={handleRegistrarConsumo}

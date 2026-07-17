@@ -28,6 +28,7 @@ export function recetaRoutes(container: Container): Router {
     body('items.*.cantidad').optional().isInt({ min: 1 }).withMessage('Cantidad debe ser mayor a 0'),
     body('items.*.cantConsumo').optional().isInt({ min: 1 }).withMessage('Cantidad debe ser mayor a 0'),
     body('items.*.loteId').optional().isUUID(),
+    body('confirmarAlertas').optional().isBoolean().withMessage('confirmarAlertas debe ser booleano'),
     validateRequest,
     controller.consumir,
   );

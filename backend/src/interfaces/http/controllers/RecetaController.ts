@@ -24,6 +24,7 @@ export class RecetaController {
         req.body.items,
         req.user?.nombre ?? req.user?.id,
         req.body.depositoId,
+        req.body.confirmarAlertas,
       );
       res.json({
         success: true,

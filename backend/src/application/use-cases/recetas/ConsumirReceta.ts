@@ -3,7 +3,7 @@ import { IInventarioRepository } from '../../../domain/repositories/IInventarioR
 import { IMovimientoStockRepository } from '../../../domain/repositories/IMovimientoStockRepository';
 import { INotificacionRepository } from '../../../domain/repositories/INotificacionRepository';
 import { GenerarSolicitudAutomatica } from '../solicitudes/GenerarSolicitudAutomatica';
-import { ValidationError } from '../../errors/AppError';
+import { ConflictError, ValidationError } from '../../errors/AppError';
 
 interface ItemReceta {
   productoId?: string;
@@ -27,10 +27,22 @@ export class ConsumirReceta {
     private readonly generarSolicitudAutomatica: GenerarSolicitudAutomatica,
   ) {}
 
-  async execute(recetaId: string, items: ItemReceta[], usuarioId?: string, depositoId?: string): Promise<ConsumirRecetaResult> {
+  async execute(
+    recetaId: string,
+    items: ItemReceta[],
+    usuarioId?: string,
+    depositoId?: string,
+    confirmarAlertas = false,
+  ): Promise<ConsumirRecetaResult> {
     const validacion = await this.recetaService.validarReceta(recetaId);
     if (!validacion.valida) {
       throw new ValidationError(`La receta ${recetaId} no es válida`);
+    }
+
+    if ((validacion.alertas?.length ?? 0) > 0 && !confirmarAlertas) {
+      throw new ConflictError(
+        `La receta contiene alertas clínicas: ${validacion.alertas.join('; ')}. Debe confirmar la dispensación para continuar.`,
+      );
     }
 
     const yaConsumida = await this.movimientoRepository.existsByTipoAndReferencia(

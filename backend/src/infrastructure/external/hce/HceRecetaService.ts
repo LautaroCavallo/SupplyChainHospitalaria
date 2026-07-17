@@ -53,9 +53,10 @@ export class HceRecetaService implements IRecetaService {
     if (receta.estado !== 'Activa') {
       errores.push(`La receta está en estado ${receta.estado}`);
     }
-    if ((receta.alertas_clinicas?.length ?? 0) > 0) {
-      errores.push('La receta contiene alertas clínicas activas');
-    }
+
+    // Las alertas clínicas no invalidan la receta: se muestran para que el
+    // farmacéutico decida si dispensa igualmente, previa confirmación.
+    const alertas = (receta.alertas_clinicas ?? []).map((alerta) => this.describirAlerta(alerta));
 
     const consumida = receta.estado === 'Dispensada';
     return {
@@ -73,6 +74,7 @@ export class HceRecetaService implements IRecetaService {
         indicaciones: item.indicaciones ?? undefined,
       })),
       errores,
+      alertas,
       consumida,
       estado: consumida ? 'Consumida' : receta.estado === 'Activa' ? 'Activa' : 'Vencida',
     };
@@ -97,6 +99,17 @@ export class HceRecetaService implements IRecetaService {
       })),
       errores: [],
     };
+  }
+
+  /** HCE no documenta un shape fijo para las alertas clínicas; se intenta extraer un mensaje legible. */
+  private describirAlerta(alerta: unknown): string {
+    if (typeof alerta === 'string') return alerta;
+    if (alerta && typeof alerta === 'object') {
+      const obj = alerta as Record<string, unknown>;
+      const mensaje = obj.mensaje ?? obj.descripcion ?? obj.detalle ?? obj.tipo;
+      if (typeof mensaje === 'string') return mensaje;
+    }
+    return 'Alerta clínica activa';
   }
 
   private numericId(recetaId: string): number {
