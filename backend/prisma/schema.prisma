@@ -205,20 +205,6 @@ model SolicitudCompraDetalle {
   @@map("solicitud_compra_detalles")
 }
 
-model Usuario {
-  id           String   @id @default(uuid())
-  nombre       String
-  email        String   @unique
-  passwordHash String
-  cargo        String   @default("Farmacéutico")
-  rol          String   @default("FARMACEUTICO")
-  activo       Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@map("usuarios")
-}
-
 model Notificacion {
   id          String   @id @default(uuid())
   tipo        String

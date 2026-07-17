@@ -1,27 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { CoreAuthService } from '../../../infrastructure/external/core/CoreAuthService';
-import { LocalAuthService } from '../../../infrastructure/external/core/LocalAuthService';
 
 export class AuthController {
-  constructor(
-    private readonly coreAuthService: CoreAuthService,
-    private readonly localAuthService: LocalAuthService,
-  ) {}
+  constructor(private readonly coreAuthService: CoreAuthService) {}
 
   login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const data = await this.coreAuthService.login(req.body.email, req.body.password);
       res.json({ success: true, data });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { email, password, nombre, cargo, rol } = req.body;
-      const data = await this.localAuthService.register(email, password, nombre, cargo, rol);
-      res.status(201).json({ success: true, data });
     } catch (error) {
       next(error);
     }

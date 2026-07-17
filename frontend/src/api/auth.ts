@@ -21,18 +21,6 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return res.data.data;
 }
 
-export interface RegisterPayload {
-  email: string;
-  password: string;
-  nombre: string;
-  cargo?: string;
-}
-
-export async function register(payload: RegisterPayload): Promise<LoginResponse> {
-  const res = await api.post('/auth/register', payload);
-  return res.data.data;
-}
-
 /**
  * Canjea el ticket SSO a través del backend (servidor-a-servidor con el Core).
  * Devuelve el JWT, los datos del usuario y la ruta interna de redirección.

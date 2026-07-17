@@ -1,7 +1,6 @@
 import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
 import { AppError } from '../../../application/errors/AppError';
 import { config } from '../../../config';
-import { LocalAuthService, verifyLocalToken } from './LocalAuthService';
 
 export interface CoreUser {
   id: string;
@@ -40,7 +39,6 @@ let _jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
 export class CoreAuthService {
   private readonly baseUrl = config.integrations.coreApiUrl.replace(/\/$/, '');
-  private readonly local = new LocalAuthService();
 
   get enabled(): boolean {
     return Boolean(this.baseUrl);
@@ -59,12 +57,8 @@ export class CoreAuthService {
   }
 
   async login(email: string, password: string): Promise<CoreLoginResult> {
-    // Usar auth local cuando el modo no es 'core', independientemente de si CORE_API_URL está configurada.
+    // Modo mock (solo desarrollo local sin Core disponible): usuario fijo, sin persistencia local.
     if (config.integrations.authMode !== 'core') {
-      const count = await this.local.getUserCount();
-      if (count > 0) {
-        return this.local.login(email, password);
-      }
       return {
         token: 'dev-token',
         user: { id: 'usr-001', nombre: 'Usuario Farmacia', email, rol: 'FARMACEUTICO_JEFE', permisos: ['farmacia:*'] },
@@ -127,10 +121,6 @@ export class CoreAuthService {
    */
   async validateToken(token: string): Promise<CoreUser> {
     if (!this.enabled) {
-      if (token && token !== 'dev-token') {
-        const local = await verifyLocalToken(token);
-        if (local) return local;
-      }
       return { id: 'usr-001', nombre: 'Dr. Alejandro V.', rol: 'FARMACEUTICO_JEFE', permisos: ['farmacia:*'] };
     }
 
