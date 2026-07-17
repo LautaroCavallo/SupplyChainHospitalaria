@@ -6,7 +6,7 @@ import { validateRequest } from './validation';
 
 export function authRoutes(container: Container): Router {
   const router = Router();
-  const controller = new AuthController(container.coreAuthService);
+  const controller = new AuthController(container.coreAuthService, container.coreClient);
 
   router.post('/login',
     body('email').isEmail().withMessage('Email inválido'),
@@ -22,6 +22,10 @@ export function authRoutes(container: Container): Router {
     validateRequest,
     controller.ssoCallback,
   );
+
+  // SSO saliente: el usuario logueado en Farmacia pide un ticket para navegar
+  // ya autenticado a otro módulo de Health Grid.
+  router.get('/sso-ticket', controller.getSsoTicket);
 
   return router;
 }

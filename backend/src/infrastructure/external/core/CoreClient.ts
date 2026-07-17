@@ -79,6 +79,21 @@ export class CoreClient {
     return (await res.json()) as { user: unknown; token: string };
   }
 
+  /**
+   * Pide a Core un ticket de un solo uso (SSO saliente) para el usuario actualmente
+   * logueado en Farmacia, con el que otro módulo lo puede dejar entrar ya autenticado.
+   * Se autentica con el JWT del propio usuario (no el token de servicio).
+   */
+  async obtenerSsoTicket(userToken: string): Promise<{ ticket: string; expires_in?: number }> {
+    const res = await fetch(`${this.baseUrl}/auth/sso-ticket`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userToken}` },
+    });
+    if (res.status === 401) throw new AppError('Sesión inválida o expirada', 401);
+    if (!res.ok) throw new AppError(`Core sso-ticket → HTTP ${res.status}`, 502);
+    return (await res.json()) as { ticket: string; expires_in?: number };
+  }
+
   // ---- Publicación de eventos (request/response) ----
 
   /**
