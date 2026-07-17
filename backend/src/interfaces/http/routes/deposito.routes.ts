@@ -3,6 +3,7 @@ import { body, param, query } from 'express-validator';
 import { Container } from '../../../infrastructure/container';
 import { DepositoController } from '../controllers/DepositoController';
 import { validateRequest } from './validation';
+import { requirePermiso } from '../middleware/permisos';
 
 export function depositoRoutes(container: Container): Router {
   const router = Router();
@@ -13,6 +14,8 @@ export function depositoRoutes(container: Container): Router {
     container.obtenerStockPorDeposito,
   );
 
+  router.use(requirePermiso('farmacia:inventario:read'));
+
   router.get('/',
     query('activos').optional().isBoolean(),
     validateRequest,
@@ -20,6 +23,7 @@ export function depositoRoutes(container: Container): Router {
   );
 
   router.post('/',
+    requirePermiso('farmacia:inventario:write'),
     body('nombre').isString().trim().notEmpty().withMessage('Nombre requerido'),
     body('tipo').optional().isIn(['CENTRAL', 'PISO']),
     body('descripcion').optional().isString().trim(),
@@ -28,6 +32,7 @@ export function depositoRoutes(container: Container): Router {
   );
 
   router.post('/transferencias',
+    requirePermiso('farmacia:inventario:write'),
     body('productoId').isString().trim().notEmpty().withMessage('Producto ID inválido'),
     body('depositoOrigenId').isString().trim().notEmpty().withMessage('Depósito origen inválido'),
     body('depositoDestinoId').isString().trim().notEmpty().withMessage('Depósito destino inválido'),

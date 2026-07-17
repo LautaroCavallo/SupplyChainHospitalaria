@@ -13,6 +13,7 @@ import AlertasCarousel from '../components/compras/AlertasCarousel';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import FilterTabs from '../components/common/FilterTabs';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
+import { hasPermiso } from '../utils/permisos';
 
 const estadoBadge: Record<string, { label: string; variant: 'success' | 'warning' | 'info' | 'default' | 'danger' }> = {
   BORRADOR:  { label: 'Borrador',  variant: 'default' },
@@ -57,6 +58,8 @@ function getEstadoSolicitud(s: SolicitudCompra): string {
 
 export default function Compras() {
   const navigate = useNavigate();
+  const puedeEscribirCompras = hasPermiso('farmacia:compras:write');
+  const puedeEscribirRecepciones = hasPermiso('farmacia:recepciones:write');
   const [data, setData] = useState<PaginatedResponse<SolicitudCompra> | null>(null);
   const [alertas, setAlertas] = useState<AlertaStockCritico[]>([]);
   const [page, setPage] = useState(1);
@@ -164,7 +167,7 @@ export default function Compras() {
   }, [navigate]);
 
   const handleRowClick = (s: SolicitudCompra) => {
-    if (s.estado === 'BORRADOR') {
+    if (s.estado === 'BORRADOR' && puedeEscribirCompras) {
       setPrefillAlerta(null);
       setEditandoBorrador(s);
       setNuevaModal(true);
@@ -236,7 +239,7 @@ export default function Compras() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                          {s.estado === 'BORRADOR' && (
+                          {s.estado === 'BORRADOR' && puedeEscribirCompras && (
                             <>
                               <button
                                 disabled={enviando === s.id}
@@ -259,7 +262,7 @@ export default function Compras() {
                               </button>
                             </>
                           )}
-                          {s.estado === 'PENDIENTE' && (
+                          {s.estado === 'PENDIENTE' && puedeEscribirCompras && (
                             <button
                               disabled={enviando === s.id}
                               onClick={() => handleEnviarACompras(s.id)}
@@ -273,7 +276,7 @@ export default function Compras() {
                               Enviar
                             </button>
                           )}
-                          {estadoActual === 'APROBADA' && (
+                          {estadoActual === 'APROBADA' && puedeEscribirRecepciones && (
                             <button
                               disabled={generandoRecepcion === s.id}
                               onClick={() => handleGenerarRecepcion(s.id)}
@@ -299,10 +302,10 @@ export default function Compras() {
                           )}
                           <button
                             onClick={() => handleRowClick(s)}
-                            title={s.estado === 'BORRADOR' ? 'Editar borrador' : 'Ver detalle'}
+                            title={s.estado === 'BORRADOR' && puedeEscribirCompras ? 'Editar borrador' : 'Ver detalle'}
                             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
                           >
-                            {s.estado === 'BORRADOR' ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {s.estado === 'BORRADOR' && puedeEscribirCompras ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
                         </div>
                       </td>
@@ -331,6 +334,7 @@ export default function Compras() {
       </div>
 
       {/* FAB */}
+      {puedeEscribirCompras && (
       <button
         onClick={() => { setPrefillAlerta(null); setEditandoBorrador(null); setNuevaModal(true); }}
         className="fixed bottom-8 right-8 flex items-center gap-2 rounded-full bg-brand px-5 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105 hover:bg-brand-light"
@@ -338,6 +342,7 @@ export default function Compras() {
         <Plus className="h-5 w-5" />
         Nueva Solicitud de compra
       </button>
+      )}
 
       <NuevaSolicitudModal
         isOpen={nuevaModal}

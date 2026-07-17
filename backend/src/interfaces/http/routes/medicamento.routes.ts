@@ -3,10 +3,13 @@ import { body, param, query } from 'express-validator';
 import { Container } from '../../../infrastructure/container';
 import { MedicamentoController } from '../controllers/MedicamentoController';
 import { validateRequest } from './validation';
+import { requirePermiso } from '../middleware/permisos';
 
 export function medicamentoRoutes(container: Container): Router {
   const router = Router();
   const controller = new MedicamentoController(container.inventarioRepository);
+
+  router.use(requirePermiso('farmacia:gestion:read'));
 
   router.get('/',
     query('page').optional().isInt({ min: 1 }).toInt(),
@@ -21,6 +24,7 @@ export function medicamentoRoutes(container: Container): Router {
   router.get('/summary', controller.summary);
 
   router.post('/',
+    requirePermiso('farmacia:gestion:write'),
     body('nombre').isString().trim().notEmpty().withMessage('Nombre requerido'),
     body('categoria').optional().isString().trim(),
     body('presentacion').optional().isString().trim(),
@@ -35,6 +39,7 @@ export function medicamentoRoutes(container: Container): Router {
   );
 
   router.put('/:id',
+    requirePermiso('farmacia:gestion:write'),
     param('id').isUUID(),
     body('nombre').optional().isString().trim().notEmpty(),
     body('categoria').optional().isString().trim(),
@@ -50,6 +55,7 @@ export function medicamentoRoutes(container: Container): Router {
   );
 
   router.delete('/:id',
+    requirePermiso('farmacia:gestion:write'),
     param('id').isUUID(),
     validateRequest,
     controller.delete,

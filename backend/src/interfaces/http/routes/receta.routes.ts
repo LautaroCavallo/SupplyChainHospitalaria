@@ -3,6 +3,7 @@ import { param, body } from 'express-validator';
 import { RecetaController } from '../controllers/RecetaController';
 import { Container } from '../../../infrastructure/container';
 import { validateRequest } from './validation';
+import { requirePermiso } from '../middleware/permisos';
 
 export function recetaRoutes(container: Container): Router {
   const router = Router();
@@ -10,6 +11,8 @@ export function recetaRoutes(container: Container): Router {
     container.validarReceta,
     container.consumirReceta,
   );
+
+  router.use(requirePermiso('farmacia:pacientes:read'));
 
   router.post('/:id/validar',
     param('id').isString().notEmpty(),

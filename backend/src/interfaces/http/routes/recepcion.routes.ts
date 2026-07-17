@@ -3,6 +3,7 @@ import { body, param, query } from 'express-validator';
 import { RecepcionController } from '../controllers/RecepcionController';
 import { Container } from '../../../infrastructure/container';
 import { validateRequest } from './validation';
+import { requirePermiso } from '../middleware/permisos';
 
 export function recepcionRoutes(container: Container): Router {
   const router = Router();
@@ -16,6 +17,8 @@ export function recepcionRoutes(container: Container): Router {
     container.procesarRecepcion,
   );
 
+  router.use(requirePermiso('farmacia:recepciones:read'));
+
   router.get('/',
     query('page').optional().isInt({ min: 1 }).toInt(),
     query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
@@ -25,6 +28,7 @@ export function recepcionRoutes(container: Container): Router {
   );
 
   router.post('/',
+    requirePermiso('farmacia:recepciones:write'),
     body('proveedorId').isUUID().withMessage('Proveedor ID inválido'),
     body('remito').optional().isString().trim(),
     body('fechaRecepcion').isISO8601().withMessage('Fecha de recepción inválida'),
@@ -41,6 +45,7 @@ export function recepcionRoutes(container: Container): Router {
   );
 
   router.post('/desde-orden-compra/:solicitudId',
+    requirePermiso('farmacia:recepciones:write'),
     param('solicitudId').isUUID().withMessage('Orden de compra inválida'),
     validateRequest,
     controller.createFromOrdenCompra,
@@ -53,6 +58,7 @@ export function recepcionRoutes(container: Container): Router {
   );
 
   router.put('/:id',
+    requirePermiso('farmacia:recepciones:write'),
     param('id').isUUID(),
     body('proveedorId').isUUID().withMessage('Proveedor ID inválido'),
     body('remito').optional().isString().trim(),
@@ -70,12 +76,14 @@ export function recepcionRoutes(container: Container): Router {
   );
 
   router.put('/:id/confirmar',
+    requirePermiso('farmacia:recepciones:write'),
     param('id').isUUID(),
     validateRequest,
     controller.confirmar,
   );
 
   router.put('/:id/procesar',
+    requirePermiso('farmacia:recepciones:write'),
     param('id').isUUID(),
     validateRequest,
     controller.procesar,

@@ -3,6 +3,7 @@ import { body, param, query } from 'express-validator';
 import { SolicitudCompraController } from '../controllers/SolicitudCompraController';
 import { Container } from '../../../infrastructure/container';
 import { validateRequest } from './validation';
+import { requirePermiso } from '../middleware/permisos';
 
 export function solicitudCompraRoutes(container: Container): Router {
   const router = Router();
@@ -18,18 +19,21 @@ export function solicitudCompraRoutes(container: Container): Router {
   );
 
   router.get('/',
+    requirePermiso('farmacia:compras:read'),
     query('estado').optional().isIn(['BORRADOR', 'PENDIENTE', 'APROBADA', 'EN_RECEPCION', 'RECHAZADA', 'ENVIADA']),
     validateRequest,
     controller.list,
   );
 
   router.get('/:id',
+    requirePermiso('farmacia:compras:read'),
     param('id').isUUID().withMessage('ID debe ser un UUID válido'),
     validateRequest,
     controller.getById,
   );
 
   router.post('/',
+    requirePermiso('farmacia:compras:write'),
     body('estado').optional().isIn(['BORRADOR', 'PENDIENTE']),
     body('prioridad').optional().isIn(['BAJA', 'NORMAL', 'ALTA', 'URGENTE']),
     body('motivo').optional().isString().trim(),
@@ -43,6 +47,7 @@ export function solicitudCompraRoutes(container: Container): Router {
   );
 
   router.put('/:id',
+    requirePermiso('farmacia:compras:write'),
     param('id').isUUID().withMessage('ID debe ser un UUID válido'),
     body('prioridad').optional().isIn(['BAJA', 'NORMAL', 'ALTA', 'URGENTE']),
     body('motivo').optional().isString().trim(),
@@ -56,23 +61,28 @@ export function solicitudCompraRoutes(container: Container): Router {
   );
 
   router.delete('/:id',
+    requirePermiso('farmacia:compras:write'),
     param('id').isUUID().withMessage('ID debe ser un UUID válido'),
     validateRequest,
     controller.remove,
   );
 
   router.post('/:id/confirmar-borrador',
+    requirePermiso('farmacia:compras:write'),
     param('id').isUUID().withMessage('ID debe ser un UUID válido'),
     validateRequest,
     controller.confirmarBorrador,
   );
 
   router.post('/:id/enviar-compras',
+    requirePermiso('farmacia:compras:write'),
     param('id').isUUID().withMessage('ID debe ser un UUID válido'),
     validateRequest,
     controller.enviarACompras,
   );
 
+  // Sin requirePermiso: es el webhook público de confirmación de adjudicación
+  // (Módulo 7), excluido del middleware de auth y sin req.user asociado.
   router.post('/:id/confirmacion-adjudicacion',
     param('id').isUUID().withMessage('ID debe ser un UUID válido'),
     body('aprobado').isBoolean().withMessage('aprobado debe ser booleano'),

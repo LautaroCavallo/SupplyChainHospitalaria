@@ -10,6 +10,7 @@ import SortableTh, { type SortDirection } from '../components/common/SortableTh'
 import AjusteStockModal from '../components/inventario/AjusteStockModal';
 import TransferenciaModal from '../components/inventario/TransferenciaModal';
 import { applySortDirection, compareDate, compareNumber, compareText, nextSortDirection } from '../utils/sort';
+import { hasPermiso } from '../utils/permisos';
 
 function formatDate(d: string): string {
   const dt = new Date(d);
@@ -61,6 +62,7 @@ const estadoLoteSortOrder: Record<EstadoLote, number> = {
 export default function InventarioDetalle() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const puedeEscribir = hasPermiso('farmacia:inventario:write');
   const [producto, setProducto] = useState<ProductoInventario | null>(null);
   const [lotes, setLotes] = useState<Lote[]>([]);
   const [estadoFilter, setEstadoFilter] = useState('');
@@ -215,12 +217,14 @@ export default function InventarioDetalle() {
           <div className="mt-3 border-t border-gray-100 pt-3">
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">Por depósito</span>
-              <button
-                onClick={() => setTransferModal(true)}
-                className="flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
-              >
-                <ArrowLeftRight className="h-3 w-3" /> Transferir
-              </button>
+              {puedeEscribir && (
+                <button
+                  onClick={() => setTransferModal(true)}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+                >
+                  <ArrowLeftRight className="h-3 w-3" /> Transferir
+                </button>
+              )}
             </div>
             {stockDeposito.length === 0 ? (
               <p className="text-xs text-gray-400">Sin stock distribuido</p>
@@ -305,13 +309,15 @@ export default function InventarioDetalle() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => { setSelectedLote(lote); setAjusteModal(true); }}
-                        title="Ajustar lote"
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
-                      >
-                        <SlidersHorizontal className="h-4 w-4" />
-                      </button>
+                      {puedeEscribir && (
+                        <button
+                          onClick={() => { setSelectedLote(lote); setAjusteModal(true); }}
+                          title="Ajustar lote"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-brand"
+                        >
+                          <SlidersHorizontal className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         onClick={() => navigate(`/inventario/${id}/lotes/${lote.id}/historial`)}
                         title="Ver historial"
