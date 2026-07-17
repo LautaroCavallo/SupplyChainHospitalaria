@@ -1,8 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { CoreAuthService } from '../../../infrastructure/external/core/CoreAuthService';
+import { CoreClient } from '../../../infrastructure/external/core/CoreClient';
 
 export class AuthController {
-  constructor(private readonly coreAuthService: CoreAuthService) {}
+  constructor(
+    private readonly coreAuthService: CoreAuthService,
+    private readonly coreClient: CoreClient,
+  ) {}
 
   login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -37,6 +41,31 @@ export class AuthController {
 
       const data = await this.coreAuthService.exchangeTicket(ticket);
       res.json({ success: true, data: { ...data, redirect: safeRedirect } });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /auth/sso-ticket
+   *
+   * SSO saliente: pide a Core un ticket de un solo uso para el usuario actualmente
+   * logueado en Farmacia, así el frontend puede redirigirlo a otro módulo ya autenticado.
+   * Requiere el JWT del usuario en el header Authorization (esta ruta está fuera del
+   * gating del middleware de auth, así que se lee acá directamente).
+   */
+  getSsoTicket = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+
+      if (!token) {
+        res.status(401).json({ success: false, error: 'Token JWT requerido' });
+        return;
+      }
+
+      const data = await this.coreClient.obtenerSsoTicket(token);
+      res.json({ success: true, data });
     } catch (error) {
       next(error);
     }

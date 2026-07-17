@@ -29,3 +29,12 @@ export async function exchangeSSOTicket(ticket: string): Promise<SsoCallbackResp
   const res = await api.get('/auth/sso', { params: { ticket } });
   return res.data.data;
 }
+
+/**
+ * SSO saliente: pide a Core un ticket de un solo uso para el usuario actual,
+ * para navegar ya autenticado a otro módulo de Health Grid.
+ */
+export async function getSsoTicket(): Promise<{ ticket: string; expires_in?: number }> {
+  const res = await api.get('/auth/sso-ticket');
+  return res.data.data;
+}
