@@ -1,6 +1,7 @@
-import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
+import { createRemoteJWKSet, jwtVerify, decodeJwt, JWTPayload } from 'jose';
 import { AppError } from '../../../application/errors/AppError';
 import { config } from '../../../config';
+import { MOCK_USERS, DEFAULT_MOCK_USER } from './mockUsers';
 
 export interface CoreUser {
   id: string;
@@ -57,12 +58,11 @@ export class CoreAuthService {
   }
 
   async login(email: string, password: string): Promise<CoreLoginResult> {
-    // Modo mock (solo desarrollo local sin Core disponible): usuario fijo, sin persistencia local.
+    // Modo mock (solo desarrollo local sin Core disponible): usuario según el email
+    // (ver mockUsers.ts), sin persistencia local. Permite probar los permisos por rol.
     if (config.integrations.authMode !== 'core') {
-      return {
-        token: 'dev-token',
-        user: { id: 'usr-001', nombre: 'Usuario Farmacia', email, rol: 'FARMACEUTICO_JEFE', permisos: ['farmacia:*'] },
-      };
+      const user = MOCK_USERS[email.toLowerCase()] ?? { ...DEFAULT_MOCK_USER, email };
+      return { token: `dev-mock:${user.email}`, user };
     }
 
     const response = await this.request<CoreAuthResponse>('/auth/login', {
@@ -77,7 +77,7 @@ export class CoreAuthService {
 
     return {
       token,
-      user: this.mapUser(response.user, email),
+      user: this.withPermisosDelToken(this.mapUser(response.user, email), token),
     };
   }
 
@@ -87,15 +87,9 @@ export class CoreAuthService {
    */
   async exchangeTicket(ticket: string): Promise<CoreLoginResult> {
     if (!this.enabled) {
-      return {
-        token: 'dev-sso-token',
-        user: {
-          id: 'sso-usr-001',
-          nombre: 'Usuario SSO (dev)',
-          rol: 'FARMACEUTICO_JEFE',
-          permisos: ['farmacia:*'],
-        },
-      };
+      // Modo mock: si el "ticket" coincide con un email de mockUsers.ts, entra con ese rol.
+      const user = MOCK_USERS[ticket.toLowerCase()] ?? DEFAULT_MOCK_USER;
+      return { token: `dev-mock:${user.email}`, user };
     }
 
     const response = await this.request<CoreAuthResponse>('/auth/sso-exchange', {
@@ -110,7 +104,7 @@ export class CoreAuthService {
 
     return {
       token,
-      user: this.mapUser(response.user),
+      user: this.withPermisosDelToken(this.mapUser(response.user), token),
     };
   }
 
@@ -121,7 +115,7 @@ export class CoreAuthService {
    */
   async validateToken(token: string): Promise<CoreUser> {
     if (!this.enabled) {
-      return { id: 'usr-001', nombre: 'Dr. Alejandro V.', rol: 'FARMACEUTICO_JEFE', permisos: ['farmacia:*'] };
+      return DEFAULT_MOCK_USER;
     }
 
     // 1) Validación local con JWKS (RS256 + exp). No requiere llamada al Core.
@@ -175,6 +169,26 @@ export class CoreAuthService {
       rol: String(payload['rol'] ?? payload['role'] ?? 'USUARIO'),
       permisos: Array.isArray(permissions) ? permissions.map(String) : [],
     };
+  }
+
+  /**
+   * `/auth/login` y `/auth/sso-exchange` devuelven el `user` sin `permissions`
+   * (según la guía de integración, ese claim solo viaja dentro del JWT). Se
+   * decodifica el token —ya recibido de Core sobre HTTPS en esta misma
+   * request, no hace falta re-verificar la firma— para completar los permisos
+   * reales del usuario.
+   */
+  private withPermisosDelToken(user: CoreUser, token: string): CoreUser {
+    try {
+      const payload = decodeJwt(token);
+      const permissions = payload['permissions'];
+      if (Array.isArray(permissions) && permissions.length > 0) {
+        return { ...user, permisos: permissions.map(String) };
+      }
+    } catch {
+      // Token no decodificable: se mantienen los permisos que trajo `mapUser` (probablemente vacíos).
+    }
+    return user;
   }
 
   private mapUser(user?: CoreUserResponse, fallbackEmail?: string): CoreUser {

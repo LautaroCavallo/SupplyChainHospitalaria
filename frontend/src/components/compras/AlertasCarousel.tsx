@@ -5,7 +5,7 @@ import type { AlertaStockCritico } from '../../types';
 
 interface AlertasCarouselProps {
   alertas: AlertaStockCritico[];
-  onCrearSolicitud: (alerta: AlertaStockCritico) => void;
+  onCrearSolicitud?: (alerta: AlertaStockCritico) => void;
 }
 
 export default function AlertasCarousel({ alertas, onCrearSolicitud }: AlertasCarouselProps) {
@@ -113,13 +113,15 @@ export default function AlertasCarousel({ alertas, onCrearSolicitud }: AlertasCa
                 </div>
 
                 {/* Botón carrito */}
-                <button
-                  onClick={() => onCrearSolicitud(alerta)}
-                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand text-white hover:bg-brand-light"
-                  title="Crear solicitud"
-                >
-                  <ShoppingCart className="h-4 w-4" />
-                </button>
+                {onCrearSolicitud && (
+                  <button
+                    onClick={() => onCrearSolicitud(alerta)}
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-brand text-white hover:bg-brand-light"
+                    title="Crear solicitud"
+                  >
+                    <ShoppingCart className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             );
           })}

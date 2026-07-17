@@ -188,7 +188,7 @@ export default function Compras() {
       {alertas.length > 0 && (
         <AlertasCarousel
           alertas={alertas}
-          onCrearSolicitud={(alerta) => { setPrefillAlerta(alerta); setNuevaModal(true); }}
+          onCrearSolicitud={puedeEscribirCompras ? (alerta) => { setPrefillAlerta(alerta); setNuevaModal(true); } : undefined}
         />
       )}
 

@@ -10,6 +10,7 @@ import Pagination from '../components/common/Pagination';
 import AjusteStockModal from '../components/inventario/AjusteStockModal';
 import SortableTh, { type SortDirection } from '../components/common/SortableTh';
 import { applySortDirection, compareNumber, compareText, nextSortDirection } from '../utils/sort';
+import { hasPermiso } from '../utils/permisos';
 
 function getNivelStock(p: ProductoInventario): NivelStock {
   if (p.nivelStock) return p.nivelStock;
@@ -44,6 +45,7 @@ const nivelSortOrder: Record<NivelStock, number> = {
 
 export default function Inventario() {
   const navigate = useNavigate();
+  const puedeEscribir = hasPermiso('farmacia:inventario:write');
   const [data, setData] = useState<PaginatedResponse<ProductoInventario> | null>(null);
   const [page, setPage] = useState(1);
   const [busqueda, setBusqueda] = useState('');
@@ -268,13 +270,15 @@ export default function Inventario() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => { setSelectedProduct(p); setAjusteModal(true); }}
-                            title="Editar"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
+                          {puedeEscribir && (
+                            <button
+                              onClick={() => { setSelectedProduct(p); setAjusteModal(true); }}
+                              title="Editar"
+                              className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => navigate(`/inventario/${p.id}`)}
                             title="Ver detalle"

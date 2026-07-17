@@ -79,7 +79,7 @@ export default function Recepciones() {
   useEffect(() => { setPage(1); }, [estadoFilter]);
 
   const handleRowClick = async (r: Recepcion) => {
-    if (r.estado === 'BORRADOR') {
+    if (r.estado === 'BORRADOR' && puedeEscribir) {
       navigate(`/recepciones/${r.id}/editar`);
       return;
     }
@@ -295,7 +295,7 @@ export default function Recepciones() {
         isOpen={detailModal}
         onClose={() => { setDetailModal(false); setSelectedRecepcion(null); }}
         recepcion={selectedRecepcion}
-        onConfirmReception={handleConfirmRecepcion}
+        onConfirmReception={puedeEscribir ? handleConfirmRecepcion : undefined}
       />
     </div>
   );
