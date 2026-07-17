@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { CoreAuthService } from '../../../infrastructure/external/core/CoreAuthService';
 import { config } from '../../../config';
+import { MOCK_USERS, DEFAULT_MOCK_USER } from '../../../infrastructure/external/core/mockUsers';
 
 declare global {
   namespace Express {
@@ -35,9 +36,12 @@ export function createAuthMiddleware(coreAuthService: CoreAuthService) {
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
 
     if (config.integrations.authMode !== 'core') {
-      // Modo mock (solo desarrollo local sin Core disponible): no valida token, usuario fijo.
+      // Modo mock (solo desarrollo local sin Core disponible): no valida firma, pero
+      // respeta el usuario con el que se logueó (ver mockUsers.ts) para poder probar
+      // el gating por permisos de cada rol.
       req.authToken = token;
-      req.user = { id: 'usr-001', nombre: 'Dr. Alejandro V.', rol: 'FARMACEUTICO_JEFE', permisos: ['farmacia:*'] };
+      const mockEmail = token?.startsWith('dev-mock:') ? token.slice('dev-mock:'.length) : undefined;
+      req.user = (mockEmail && MOCK_USERS[mockEmail]) || DEFAULT_MOCK_USER;
       next();
       return;
     }

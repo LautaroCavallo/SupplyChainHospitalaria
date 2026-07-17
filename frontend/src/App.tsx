@@ -25,7 +25,12 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function RequirePermiso({ permiso, children }: { permiso: string; children: React.ReactNode }) {
   if (!hasPermiso(permiso)) {
-    return <Navigate to="/" replace />;
+    return (
+      <div className="flex h-[70vh] flex-col items-center justify-center gap-2 text-center">
+        <p className="text-lg font-semibold text-gray-700">Acceso restringido</p>
+        <p className="text-sm text-gray-500">No tenés permiso para ver esta sección.</p>
+      </div>
+    );
   }
   return <>{children}</>;
 }

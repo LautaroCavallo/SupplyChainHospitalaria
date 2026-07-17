@@ -3,6 +3,7 @@ import { X, Calendar, Pill, Beaker, Send, Loader2, CheckCircle, XCircle, Clock }
 import type { SolicitudCompra } from '../../types';
 import { enviarOrdenCompra, getCompra } from '../../api/compras';
 import Badge from '../common/Badge';
+import { hasPermiso } from '../../utils/permisos';
 
 interface Props {
   isOpen: boolean;
@@ -314,7 +315,7 @@ export default function VerSolicitudModal({ isOpen, onClose, solicitud, onRefres
             <span />
           )}
           <div className="flex items-center gap-3">
-            {data.estado === 'PENDIENTE' && (
+            {data.estado === 'PENDIENTE' && hasPermiso('farmacia:compras:write') && (
               <button
                 onClick={handleEnviar}
                 disabled={enviando}
